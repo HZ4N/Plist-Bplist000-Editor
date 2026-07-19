@@ -182,7 +182,7 @@
         .cm-string { color: #34d399 !important; }
         .cm-word { color: var(--text-color); }
         
-        /* Переопределяем системное выделение текста (Selection) в CodeMirror */
+        /* Выделение текста в CodeMirror */
         .CodeMirror-selected { 
             background-color: rgba(139, 92, 246, 0.2) !important; 
         }
@@ -196,7 +196,7 @@
             border: none !important;
         }
         
-        /* Текущее активное совпадение: только ультра-аккуратное неоновое подчеркивание */
+        /* Текущее активное совпадение: ультра-аккуратное неоновое подчеркивание */
         .cm-search-marker-current { 
             background-color: transparent !important; 
             border: none !important;
@@ -268,7 +268,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Stable v3.4</span>
+        <span>OLED Stable v3.5</span>
     </div>
 </div>
 
@@ -347,7 +347,7 @@
                 }
                 if (objType === 0xD) {
                     let dictLen = objInfo;
-                    let dataOffset = 1; // <--- ИСПРАВЛЕНО ЗДЕСЬ (было dictOffset)
+                    let dataOffset = 1; 
                     if (objInfo === 0x0F) { const res = readLength(offset + 1); dictLen = res.val; dataOffset += res.bytes; }
                     const keysRefs = []; const valsRefs = []; let ptr = offset + dataOffset;
                     for(let i=0; i<dictLen; i++) { let r = 0; for(let j=0; j<objectRefSize; j++) r = (r << 8) | data.getUint8(ptr++); keysRefs.push(r); }
@@ -454,48 +454,132 @@
         return parse();
     }
 
+    // [Отказоустойчивый Кодер bplist00]
     const BplistWriter = {
         create: function(obj) {
-            const offsetTable = []; const objMap = new Map();
+            const offsetTable = []; 
+            const objMap = new Map();
+            
             function serialize(item) {
-                if (objMap.has(item)) return objMap.get(item);
-                const currentRef = offsetTable.length; objMap.set(item, currentRef);
-                if (item === null) offsetTable.push([0x00]);
-                else if (item === false) offsetTable.push([0x08]);
-                else if (item === true) offsetTable.push([0x09]);
-                else if (typeof item === 'number') {
+                if (item === null) return writeRawObject([0x00]);
+                if (item === false) return writeRawObject([0x08]);
+                if (item === true) return writeRawObject([0x09]);
+                
+                if (typeof item === 'object' || typeof item === 'string') {
+                    if (objMap.has(item)) return objMap.get(item);
+                }
+                
+                const currentRef = offsetTable.length;
+                if (typeof item === 'object' || typeof item === 'string') {
+                    objMap.set(item, currentRef);
+                }
+                
+                if (typeof item === 'number') {
                     if (Number.isInteger(item)) {
-                        offsetTable.push([0x13, (item>>24)&0xFF, (item>>16)&0xFF, (item>>8)&0xFF, item&0xFF]);
+                        const buf = new ArrayBuffer(8);
+                        new DataView(buf).setBigInt64(0, BigInt(item));
+                        offsetTable.push([0x13, ...new Uint8Array(buf)]);
                     } else {
-                        const buf = new ArrayBuffer(8); new DataView(buf).setFloat64(0, item);
+                        const buf = new ArrayBuffer(8);
+                        new DataView(buf).setFloat64(0, item);
                         offsetTable.push([0x23, ...new Uint8Array(buf)]);
                     }
                 } else if (typeof item === 'string') {
                     if (item.startsWith("{hex_data}:")) {
-                        const hex = item.replace("{hex_data}:", ""); const bytes = [];
+                        const hex = item.replace("{hex_data}:", "");
+                        const bytes = [];
                         for (let c = 0; c < hex.length; c += 2) bytes.push(parseInt(hex.substr(c, 2), 16));
-                        offsetTable.push([0x40 | (bytes.length & 0xF), ...bytes]);
+                        writeLengthMarker(0x40, bytes.length, bytes);
                     } else {
-                        const encoder = new TextEncoder(); const raw = encoder.encode(item);
-                        offsetTable.push([0x50 | (raw.length & 0xF), ...raw]);
+                        const encoder = new TextEncoder();
+                        const raw = encoder.encode(item);
+                        writeLengthMarker(0x50, raw.length, Array.from(raw));
                     }
                 } else if (Array.isArray(item)) {
-                    const refs = item.map(serialize); offsetTable.push([0xA0 | (refs.length & 0xF), ...refs]);
+                    const refs = item.map(serialize);
+                    writeLengthMarker(0xA0, refs.length, refs);
                 } else if (typeof item === 'object') {
-                    if(!item) { offsetTable.push([0x00]); return currentRef; }
-                    const keys = Object.keys(item); const kRefs = keys.map(serialize); const vRefs = keys.map(k => serialize(item[k]));
-                    offsetTable.push([0xD0 | (keys.length & 0xF), ...kRefs, ...vRefs]);
+                    const keys = Object.keys(item);
+                    const kRefs = keys.map(serialize);
+                    const vRefs = keys.map(k => serialize(item[k]));
+                    writeLengthMarker(0xD0, keys.length, [...kRefs, ...vRefs]);
                 }
                 return currentRef;
             }
+
+            function writeRawObject(bytes) {
+                const ref = offsetTable.length;
+                offsetTable.push(bytes);
+                return ref;
+            }
+
+            function writeLengthMarker(type, length, payload) {
+                if (length < 15) {
+                    offsetTable.push([type | length, ...payload]);
+                } else {
+                    let lenBytes = [];
+                    if (length <= 0xFF) { lenBytes = [0x10, length]; }
+                    else if (length <= 0xFFFF) { lenBytes = [0x11, (length >> 8) & 0xFF, length & 0xFF]; }
+                    else { lenBytes = [0x12, (length >> 24) & 0xFF, (length >> 16) & 0xFF, (length >> 8) & 0xFF, length & 0xFF]; }
+                    offsetTable.push([type | 0x0F, ...lenBytes, ...payload]);
+                }
+            }
+
             serialize(obj);
-            let finalBytes = [56, 112, 108, 105, 115, 116, 48, 48]; const actualOffsets = [];
-            offsetTable.forEach(bytes => { actualOffsets.push(finalBytes.length); finalBytes.push(...bytes); });
+
+            const numObjects = offsetTable.length;
+            let objectRefSize = 1;
+            if (numObjects > 0xFF) objectRefSize = 2;
+            if (numObjects > 0xFFFF) objectRefSize = 4;
+
+            for (let i = 0; i < numObjects; i++) {
+                const bytes = offsetTable[i];
+                const type = bytes[0] & 0xF0;
+                if (type === 0xA0 || type === 0xD0) {
+                    const headerSize = (bytes[0] & 0x0F) === 0x0F ? (bytes[1] === 0x10 ? 3 : bytes[1] === 0x11 ? 4 : 6) : 1;
+                    const meta = bytes.slice(0, headerSize);
+                    const oldRefs = bytes.slice(headerSize);
+                    const newRefs = [];
+                    for (let r of oldRefs) {
+                        for (let b = objectRefSize - 1; b >= 0; b--) newRefs.push((r >> (b * 8)) & 0xFF);
+                    }
+                    offsetTable[i] = [...meta, ...newRefs];
+                }
+            }
+
+            let finalBytes = [56, 112, 108, 105, 115, 116, 48, 48]; 
+            const actualOffsets = [];
+            
+            offsetTable.forEach(bytes => {
+                actualOffsets.push(finalBytes.length);
+                finalBytes.push(...bytes);
+            });
+
             const offsetTablePos = finalBytes.length;
-            actualOffsets.forEach(off => { finalBytes.push((off >> 24) & 0xFF, (off >> 16) & 0xFF, (off >> 8) & 0xFF, off & 0xFF); });
-            const trailer = new Array(32).fill(0); trailer[6] = 4; trailer[7] = 1; trailer[15] = offsetTable.length & 0xFF; trailer[23] = 0;
-            trailer[28] = (offsetTablePos >> 24) & 0xFF; trailer[29] = (offsetTablePos >> 16) & 0xFF; trailer[30] = (offsetTablePos >> 8) & 0xFF; trailer[31] = offsetTablePos & 0xFF;
-            finalBytes.push(...trailer); return new Uint8Array(finalBytes).buffer;
+
+            let offsetIntSize = 1;
+            if (offsetTablePos > 0xFF) offsetIntSize = 2;
+            if (offsetTablePos > 0xFFFF) offsetIntSize = 4;
+            if (offsetTablePos > 0xFFFFFFFF) offsetIntSize = 8;
+
+            actualOffsets.forEach(off => {
+                for (let b = offsetIntSize - 1; b >= 0; b--) {
+                    finalBytes.push((off >> (b * 8)) & 0xFF);
+                }
+            });
+
+            const trailer = new Array(32).fill(0);
+            trailer[6] = offsetIntSize;
+            trailer[7] = objectRefSize;
+            
+            const numObjBig = BigInt(numObjects);
+            for(let i=0; i<8; i++) trailer[8+i] = Number((numObjBig >> BigInt((7-i)*8)) & 0xFFn);
+            
+            const tablePosBig = BigInt(offsetTablePos);
+            for(let i=0; i<8; i++) trailer[24+i] = Number((tablePosBig >> BigInt((7-i)*8)) & 0xFFn);
+
+            finalBytes.push(...trailer); 
+            return new Uint8Array(finalBytes).buffer;
         }
     };
 </script>
