@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>bplist00 OLED Editor PRO</title>
+    <title>bplist00 OLED Editor PRO v4.3</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -188,12 +188,6 @@
             border-top: 1px solid var(--border-color); 
         }
         .statusbar.error { background-color: #7f1d1d; color: #fca5a5; }
-
-        @media (max-width: 480px) {
-            .toolbar { padding: 10px 12px; }
-            .filename-group { order: 3; width: 100%; }
-            .filename-input { width: 100%; max-width: none; }
-        }
     </style>
 </head>
 <body>
@@ -211,7 +205,7 @@
         
         <div class="btn-group">
             <button class="btn" onclick="triggerSearch()">Поиск</button>
-            <button class="btn btn-primary" onclick="shareBplist()">Поделиться</button>
+            <button class="btn btn-primary" onclick="shareBplist()">Сохранить</button>
         </div>
     </div>
 
@@ -241,7 +235,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Stable v3.7</span>
+        <span>OLED Direct Downloader v4.3</span>
     </div>
 </div>
 
@@ -381,50 +375,60 @@
     }
 
     function xmlPlistToObject(xmlString) {
-        let cleanXml = xmlString.replace(/<!--[\s\S]*?-->/g, "");
-        const tokenRegex = /(<[^>]+>|[^<]+)/g;
-        const tokens = cleanXml.match(tokenRegex).map(t => t.trim()).filter(t => t.length > 0);
-        let index = 0;
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
+        if (parserError) throw new Error("Ошибка в XML: " + parserError.textContent);
+
+        const plist = xmlDoc.getElementsByTagName("plist")[0];
+        if (!plist) throw new Error("Тег <plist> не найден!");
         
-        function parse() {
-            if (index >= tokens.length) return null;
-            let token = tokens[index];
-            if (token.startsWith("<plist")) { index++; return parse(); }
-            if (token === "</plist>") return null;
-            if (token === "<true/>" || token === "<true>") { index++; if(token==="<true>") index++; return true; }
-            if (token === "<false/>" || token === "<false>") { index++; if(token==="<false>") index++; return false; }
-            if (token.startsWith("<integer>")) { index++; let val = parseInt(tokens[index], 10); index += 2; return val; }
-            if (token.startsWith("<real>")) { index++; let val = parseFloat(tokens[index]); index += 2; return val; }
-            if (token.startsWith("<string>")) {
-                index++; let val = "";
-                if (!tokens[index].startsWith("</string>")) { val = tokens[index]; index++; }
-                index++; return val.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        let rootNode = null;
+        for (let i = 0; i < plist.childNodes.length; i++) {
+            if (plist.childNodes[i].nodeType === 1) { 
+                rootNode = plist.childNodes[i];
+                break;
             }
-            if (token.startsWith("<data>")) {
-                index++; let val = tokens[index]; index += 2;
-                const bin = atob(val.trim()); let hex = "";
-                for (let i = 0; i < bin.length; i++) hex += bin.charCodeAt(i).toString(16).padStart(2, '0');
-                return `{hex_data}:${hex}`;
-            }
-            if (token === "<array>") {
-                index++; const arr = [];
-                while (index < tokens.length && tokens[index] !== "</array>") { arr.push(parse()); }
-                index++; return arr;
-            }
-            if (token === "<dict>") {
-                index++; const dict = {};
-                while (index < tokens.length && tokens[index] !== "</dict>") {
-                    if (tokens[index].startsWith("<key>")) {
-                        index++; let key = tokens[index].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); index += 2;
-                        dict[key] = parse();
-                    } else { index++; }
-                }
-                index++; return dict;
-            }
-            index++; return null;
         }
-        while (index < tokens.length && !tokens[index].startsWith("<dict") && !tokens[index].startsWith("<array")) { index++; }
-        return parse();
+        if (!rootNode) throw new Error("Корневой элемент контейнера пуст!");
+        return parseNodeValue(rootNode);
+
+        function parseNodeValue(node) {
+            const name = node.tagName.toLowerCase();
+            if (name === "string") return node.textContent;
+            if (name === "integer") return parseInt(node.textContent.trim(), 10);
+            if (name === "real") return parseFloat(node.textContent.trim());
+            if (name === "true") return true;
+            if (name === "false") return false;
+            if (name === "data") {
+                try {
+                    const bin = atob(node.textContent.replace(/[\s\r\n]+/g, ""));
+                    let hex = "";
+                    for (let i = 0; i < bin.length; i++) hex += bin.charCodeAt(i).toString(16).padStart(2, '0');
+                    return `{hex_data}:${hex}`;
+                } catch(e) { return "{hex_data}:"; }
+            }
+            if (name === "dict") {
+                const dict = {}; let currentKey = null;
+                for (let i = 0; i < node.childNodes.length; i++) {
+                    const child = node.childNodes[i];
+                    if (child.nodeType === 1) {
+                        if (child.tagName.toLowerCase() === "key") currentKey = child.textContent.trim();
+                        else if (currentKey) { dict[currentKey] = parseNodeValue(child); currentKey = null; }
+                    }
+                }
+                return dict;
+            }
+            if (name === "array") {
+                const arr = [];
+                for (let i = 0; i < node.childNodes.length; i++) {
+                    const child = node.childNodes[i];
+                    if (child.nodeType === 1) arr.push(parseNodeValue(child));
+                }
+                return arr;
+            }
+            return null;
+        }
     }
 
     // [Кодер bplist00]
@@ -437,15 +441,11 @@
                 if (item === null) return writeRawObject([0x00]);
                 if (item === false) return writeRawObject([0x08]);
                 if (item === true) return writeRawObject([0x09]);
-                
                 if (typeof item === 'object' || typeof item === 'string') {
                     if (objMap.has(item)) return objMap.get(item);
                 }
-                
                 const currentRef = offsetTable.length;
-                if (typeof item === 'object' || typeof item === 'string') {
-                    objMap.set(item, currentRef);
-                }
+                if (typeof item === 'object' || typeof item === 'string') objMap.set(item, currentRef);
                 
                 if (typeof item === 'number') {
                     if (Number.isInteger(item)) {
@@ -481,15 +481,12 @@
             }
 
             function writeRawObject(bytes) {
-                const ref = offsetTable.length;
-                offsetTable.push(bytes);
-                return ref;
+                const ref = offsetTable.length; offsetTable.push(bytes); return ref;
             }
 
             function writeLengthMarker(type, length, payload) {
-                if (length < 15) {
-                    offsetTable.push([type | length, ...payload]);
-                } else {
+                if (length < 15) { offsetTable.push([type | length, ...payload]); } 
+                else {
                     let lenBytes = [];
                     if (length <= 0xFF) { lenBytes = [0x10, length]; }
                     else if (length <= 0xFFFF) { lenBytes = [0x11, (length >> 8) & 0xFF, length & 0xFF]; }
@@ -499,7 +496,6 @@
             }
 
             serialize(obj);
-
             const numObjects = offsetTable.length;
             let objectRefSize = 1;
             if (numObjects > 0xFF) objectRefSize = 2;
@@ -515,25 +511,17 @@
                     const newRefs = [];
                     for (let r of oldRefs) {
                         let rBig = BigInt(r);
-                        for (let b = objectRefSize - 1; b >= 0; b--) {
-                            newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
-                        }
+                        for (let b = objectRefSize - 1; b >= 0; b--) newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
                     }
                     offsetTable[i] = [...meta, ...newRefs];
                 }
             }
 
-            // ФИКС: Строго сигнатура "bplist00" (98 = 'b')
             let finalBytes = [98, 112, 108, 105, 115, 116, 48, 48]; 
             const actualOffsets = [];
-            
-            offsetTable.forEach(bytes => {
-                actualOffsets.push(finalBytes.length);
-                finalBytes.push(...bytes);
-            });
+            offsetTable.forEach(bytes => { actualOffsets.push(finalBytes.length); finalBytes.push(...bytes); });
 
             const offsetTablePos = finalBytes.length;
-
             let offsetIntSize = 1;
             if (offsetTablePos > 0xFF) offsetIntSize = 2;
             if (offsetTablePos > 0xFFFF) offsetIntSize = 4;
@@ -541,18 +529,13 @@
 
             actualOffsets.forEach(off => {
                 let offBig = BigInt(off);
-                for (let b = offsetIntSize - 1; b >= 0; b--) {
-                    finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
-                }
+                for (let b = offsetIntSize - 1; b >= 0; b--) finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
             });
 
             const trailer = new Array(32).fill(0);
-            trailer[6] = offsetIntSize;
-            trailer[7] = objectRefSize;
-            
+            trailer[6] = offsetIntSize; trailer[7] = objectRefSize;
             const numObjBig = BigInt(numObjects);
             for(let i=0; i<8; i++) trailer[8+i] = Number((numObjBig >> BigInt((7-i)*8)) & 0xFFn);
-            
             const tablePosBig = BigInt(offsetTablePos);
             for(let i=0; i<8; i++) trailer[24+i] = Number((tablePosBig >> BigInt((7-i)*8)) & 0xFFn);
 
@@ -583,7 +566,6 @@
                 initSearchContext(false); 
             }
         });
-        
         setTimeout(() => { editor.refresh(); }, 200);
     });
 
@@ -596,7 +578,6 @@
     function handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
         document.getElementById('filename-display').value = file.name;
         updateStatus("Декодирование...");
         
@@ -609,45 +590,39 @@
                 updateStatus("Успешно импортировано!");
                 resetSearch();
                 setTimeout(() => { editor.refresh(); }, 50);
-            } catch (err) { 
-                updateStatus("Ошибка: " + err.message, true); 
-            }
+            } catch (err) { updateStatus("Ошибка: " + err.message, true); }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    async function shareBplist() {
+    // [Исправленный метод сохранения — Прямой Blob-скачиватель]
+    function shareBplist() {
         try {
-            updateStatus("Сборка bplist00...");
+            updateStatus("Компиляция...");
             const xmlText = editor.getValue();
             const obj = xmlPlistToObject(xmlText);
-            if (!obj) throw new Error("Невалидная XML структура.");
             
             let targetName = document.getElementById('filename-display').value.trim();
             if (!targetName) targetName = "patched_file.plist";
             
             const buffer = BplistWriter.create(obj);
-            const fileData = new Uint8Array(buffer);
             
-            // ФИКС: Используем универсальный "application/octet-stream", чтобы iOS принудительно отдавала сырые байты в Share Sheet
-            const file = new File([fileData], targetName, { type: "application/octet-stream" });
+            // Задаем строгий MIME-тип для Apple property list вместо общего стрима
+            const blob = new Blob([buffer], { type: "application/x-plist" });
             
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: targetName
-                });
-                updateStatus("Успешно экспортировано!");
-            } else {
-                const blob = new Blob([buffer], { type: "application/octet-stream" });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = targetName;
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                updateStatus("Скачано локально");
-            }
+            // Чистый принудительный download без использования Share API
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = targetName;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(link.href);
+            updateStatus("Файл bplist00 успешно загружен!");
         } catch (err) { 
-            updateStatus("Ошибка экспорта", true);
+            updateStatus("Ошибка!", true);
             alert("Ошибка: " + err.message);
         }
     }
@@ -678,10 +653,8 @@
     function getSearchQuery() {
         const queryStr = document.getElementById('search-term').value;
         if (!queryStr) return null;
-
         const isRegex = document.getElementById('search-regex').checked;
         const caseSensitive = document.getElementById('search-case').checked;
-        
         if (isRegex) {
             try { return new RegExp(queryStr, caseSensitive ? "g" : "gi"); } catch (e) { return null; }
         }
@@ -692,23 +665,24 @@
         clearMarkers();
         const query = getSearchQuery();
         if (!query) { resetSearch(); return; }
-
         const caseSensitive = document.getElementById('search-case').checked;
         searchMatches = [];
         let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
-        
         while (cursor.findNext()) {
             const from = cursor.from(); const to = cursor.to();
             searchMatches.push({ from: {line: from.line, ch: from.ch}, to: {line: to.line, ch: to.ch} });
             let marker = editor.markText(from, to, { className: "cm-search-marker" });
             activeMarkers.push(marker);
         }
-
         if (searchMatches.length > 0) {
             currentMatchIndex = 0; updateCounterUI();
             if (scroll) highlightCurrentMatch();
         } else { resetSearch(); }
     }
+
+    document.getElementById('search-term').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); navigateSearch(e.shiftKey); }
+    });
 
     function updateCounterUI() {
         const label = document.getElementById('search-index-label');
@@ -735,13 +709,10 @@
     function doReplace() {
         if (searchMatches.length === 0 || currentMatchIndex === -1) return;
         const replaceStr = document.getElementById('replace-term').value;
-        
         const match = searchMatches[currentMatchIndex];
         const text = editor.getRange(match.from, match.to);
         const query = getSearchQuery();
-        
         const processedReplace = text.replace(query, replaceStr);
-        
         editor.replaceSelection(processedReplace);
         initSearchContext(false);
         if (searchMatches.length > 0) {
@@ -753,10 +724,8 @@
     function doReplaceAll() {
         const query = getSearchQuery();
         if (!query || searchMatches.length === 0) return;
-        
         const replaceStr = document.getElementById('replace-term').value;
         const caseSensitive = document.getElementById('search-case').checked;
-        
         editor.operation(() => {
             let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
             while (cursor.findNext()) {
@@ -765,8 +734,7 @@
                 cursor.replace(processedReplace);
             }
         });
-        
-        updateStatus(`Успешно заменено элементов: ${searchMatches.length}`);
+        updateStatus(`Заменено элементов: ${searchMatches.length}`);
         resetSearch();
     }
 </script>
