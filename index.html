@@ -196,7 +196,7 @@
             border: none !important;
         }
         
-        /* Текущее активное совпадение: ультра-аккуратное неоновое подчеркивание */
+        /* Текущее активное совпадение */
         .cm-search-marker-current { 
             background-color: transparent !important; 
             border: none !important;
@@ -268,7 +268,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Stable v3.5</span>
+        <span>OLED Stable v3.6</span>
     </div>
 </div>
 
@@ -454,7 +454,7 @@
         return parse();
     }
 
-    // [Отказоустойчивый Кодер bplist00]
+    // [Полностью исправленный Кодер bplist00]
     const BplistWriter = {
         create: function(obj) {
             const offsetTable = []; 
@@ -541,7 +541,11 @@
                     const oldRefs = bytes.slice(headerSize);
                     const newRefs = [];
                     for (let r of oldRefs) {
-                        for (let b = objectRefSize - 1; b >= 0; b--) newRefs.push((r >> (b * 8)) & 0xFF);
+                        // ФИКС: Используем BigInt сдвиги, чтобы избежать 32-битного переполнения JS
+                        let rBig = BigInt(r);
+                        for (let b = objectRefSize - 1; b >= 0; b--) {
+                            newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
+                        }
                     }
                     offsetTable[i] = [...meta, ...newRefs];
                 }
@@ -563,8 +567,10 @@
             if (offsetTablePos > 0xFFFFFFFF) offsetIntSize = 8;
 
             actualOffsets.forEach(off => {
+                // ФИКС: Безопасные сдвиги адресов смещений через BigInt
+                let offBig = BigInt(off);
                 for (let b = offsetIntSize - 1; b >= 0; b--) {
-                    finalBytes.push((off >> (b * 8)) & 0xFF);
+                    finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
                 }
             });
 
