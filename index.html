@@ -2,52 +2,204 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>XML Mobile bplist00 Editor PRO (Filename Edit)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bplist00 OLED Editor PRO</title>
     
+    <!-- Подключаем шрифт Montserrat -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- CodeMirror ЦП -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/dracula.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/search/searchcursor.min.js"></script>
 
     <style>
         :root {
-            --bg-color: #1e1e1e;
-            --panel-bg: #252526;
-            --accent-color: #007acc;
-            --text-color: #cccccc;
+            --bg-color: #000000; /* Чистый OLED черный */
+            --panel-bg: #09090b;  /* Глубокий серый для панелей */
+            --accent-pink: #d946ef;
+            --accent-purple: #8b5cf6;
+            --text-color: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border-color: #27272a;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body, html { width: 100%; height: 100%; background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; position: fixed; }
-        .app-container { display: flex; flex-direction: column; height: 100vh; }
-        .toolbar { background-color: var(--panel-bg); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #3c3c3c; gap: 10px; z-index: 10; }
-        .btn-group { display: flex; gap: 8px; align-items: center; }
-        .btn { background-color: #333333; color: #ffffff; border: 1px solid #444444; padding: 8px 14px; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
-        .btn:active { background-color: var(--accent-color); }
-        .btn-primary { background-color: var(--accent-color); border-color: #0062a3; }
+        
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            -webkit-tap-highlight-color: transparent; 
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        body, html { 
+            width: 100%; 
+            height: 100%; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            overflow: hidden; 
+            position: fixed; 
+        }
+        
+        .app-container { 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            height: -webkit-fill-available; 
+        }
+        
+        /* Верхний Тулбар */
+        .toolbar { 
+            background-color: var(--panel-bg); 
+            padding: 12px 16px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-bottom: 1px solid var(--border-color); 
+            gap: 10px; 
+            z-index: 10; 
+        }
+        
+        .btn-group { 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+        }
+        
+        .btn { 
+            background-color: #18181b; 
+            color: #ffffff; 
+            border: 1px solid var(--border-color); 
+            padding: 10px 14px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            white-space: nowrap; 
+            transition: all 0.2s ease;
+        }
+        
+        .btn:active { 
+            transform: scale(0.96); 
+            border-color: var(--accent-pink); 
+        }
+        
+        .btn-primary { 
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); 
+            border: none; 
+            color: #ffffff; 
+        }
+        
         #file-input { display: none; }
         
-        /* Инпут для редактирования имени файла */
-        .filename-input { background-color: #3c3c3c; border: 1px solid #6b6b6b; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 160px; outline: none; text-overflow: ellipsis; }
-        .filename-input:focus { border-color: var(--accent-color); }
+        /* Поле ввода имени файла */
+        .filename-input { 
+            background-color: #121214; 
+            border: 1px solid var(--border-color); 
+            color: #fff; 
+            padding: 9px 12px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 400; 
+            width: 140px; 
+            outline: none; 
+            text-overflow: ellipsis; 
+        }
         
-        .search-panel { background-color: var(--panel-bg); padding: 8px 12px; border-bottom: 1px solid #3c3c3c; display: flex; flex-direction: column; gap: 6px; }
-        .search-row { display: flex; gap: 6px; position: relative; }
+        .filename-input:focus { 
+            border-color: var(--accent-purple); 
+        }
+        
+        /* Панель Поиска */
+        .search-panel { 
+            background-color: var(--panel-bg); 
+            padding: 10px 16px; 
+            border-bottom: 1px solid var(--border-color); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+        }
+        
+        .search-row { display: flex; gap: 8px; position: relative; }
         .search-input-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
-        .search-input { width: 100%; background-color: #3c3c3c; border: 1px solid #6b6b6b; color: #fff; padding: 6px 65px 6px 10px; border-radius: 3px; font-size: 14px; outline: none; }
-        .search-counter { position: absolute; right: 8px; font-size: 11px; color: #888; background: #252526; padding: 2px 4px; border-radius: 2px; pointer-events: none; }
-        .search-options { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-        .checkbox-label { display: flex; align-items: center; gap: 4px; }
         
-        .editor-container { flex: 1; position: relative; overflow: hidden; }
-        .CodeMirror { position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; font-family: monospace; font-size: 14px; }
+        .search-input { 
+            width: 100%; 
+            background-color: #121214; 
+            border: 1px solid var(--border-color); 
+            color: #fff; 
+            padding: 10px 65px 10px 12px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            outline: none; 
+        }
         
-        .cm-search-marker { background-color: rgba(255, 255, 0, 0.25); border-bottom: 1px solid yellow; }
-        .cm-search-marker-current { background-color: rgba(255, 150, 0, 0.6) !important; border: 1px solid orange; }
+        .search-counter { 
+            position: absolute; 
+            right: 10px; 
+            font-size: 11px; 
+            font-weight: 500; 
+            color: var(--text-muted); 
+            background: #18181b; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            pointer-events: none; 
+        }
+        
+        .search-options { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); }
+        .checkbox-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .checkbox-label input { accent-color: var(--accent-pink); }
+        
+        /* Контейнер редактора занимает ВСЕ свободное место */
+        .editor-container { 
+            flex: 1; 
+            position: relative; 
+            background-color: var(--bg-color); 
+        }
+        
+        /* Настройки отображения самого CodeMirror */
+        .CodeMirror { 
+            position: absolute; 
+            top: 0; left: 0; right: 0; bottom: 0; 
+            height: 100% !important; 
+            background: var(--bg-color) !important; 
+            color: #e4e4e7 !important; 
+            font-family: 'Courier New', monospace; 
+            font-size: 14px; 
+        }
+        
+        .CodeMirror-gutters { 
+            background-color: var(--bg-color) !important; 
+            border-right: 1px solid var(--border-color) !important; 
+        }
+        
+        .CodeMirror-linenumber { color: #52525b !important; }
+        .CodeMirror-cursor { border-left: 2px solid var(--accent-pink) !important; }
+        
+        /* Подсветка синтаксиса в OLED стиле */
+        .cm-tag { color: var(--accent-pink) !important; }
+        .cm-meta { color: var(--accent-purple) !important; }
+        .cm-string { color: #34d399 !important; }
+        .cm-word { color: var(--text-color); }
+        
+        /* Маркеры результатов поиска */
+        .cm-search-marker { background-color: rgba(139, 92, 246, 0.3) !important; border-bottom: 2px solid var(--accent-purple); }
+        .cm-search-marker-current { background-color: rgba(217, 70, 239, 0.4) !important; border: 1px solid var(--accent-pink); }
 
-        .statusbar { background-color: var(--accent-color); color: #fff; padding: 4px 12px; font-size: 12px; display: flex; justify-content: space-between; }
-        .statusbar.error { background-color: #a61c1c; }
+        /* Статусбар */
+        .statusbar { 
+            background-color: var(--panel-bg); 
+            color: var(--text-muted); 
+            padding: 6px 16px; 
+            font-size: 11px; 
+            display: flex; 
+            justify-content: space-between; 
+            border-top: 1px solid var(--border-color); 
+        }
+        .statusbar.error { background-color: #7f1d1d; color: #fca5a5; }
     </style>
 </head>
 <body>
@@ -61,7 +213,7 @@
         </div>
         <div class="btn-group">
             <button class="btn" onclick="triggerSearch()">Поиск</button>
-            <button class="btn btn-primary" onclick="saveBplist()">Сохранить</button>
+            <button class="btn btn-primary" onclick="shareBplist()">Поделиться</button>
         </div>
     </div>
 
@@ -90,12 +242,12 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>XML Mode Pro v2.1</span>
+        <span>OLED Stable v3.1</span>
     </div>
 </div>
 
 <script>
-    // [Декодер bplist00]
+    // [Самый стабильный декодер bplist00]
     const BplistReader = {
         parse: function(buffer) {
             const data = new DataView(buffer);
@@ -324,19 +476,19 @@
 
 <script>
     let editor;
-    
     let searchMatches = [];
     let currentMatchIndex = -1;
     let activeMarkers = [];
     let currentHighlightMark = null;
 
     window.addEventListener('DOMContentLoaded', () => {
+        // Инициализируем CodeMirror со строгим расчетом под контейнер
         editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
             mode: "xml",
-            theme: "dracula",
             lineNumbers: true,
             lineWrapping: true
         });
+        
         editor.setValue(`<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n  <dict>\n    <key>Инструкция</key>\n    <string>Нажмите кнопку "Открыть" для загрузки bplist00</string>\n  </dict>\n</plist>`);
         
         editor.on("change", () => {
@@ -344,6 +496,9 @@
                 initSearchContext(false); 
             }
         });
+        
+        // Принудительный рефреш для iOS, чтобы избежать багов верстки
+        setTimeout(() => { editor.refresh(); }, 200);
     });
 
     function updateStatus(text, isError = false) {
@@ -356,46 +511,58 @@
         const file = event.target.files[0];
         if (!file) return;
         
-        // Автоматически прописываем имя исходного файла в инпут
         document.getElementById('filename-display').value = file.name;
-        
         updateStatus("Декодирование...");
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const buffer = e.target.result;
                 const parsedObj = BplistReader.parse(buffer);
                 editor.setValue(objectToXmlPlist(parsedObj));
-                updateStatus("Успешно переведено в XML Plist!");
+                updateStatus("Успешно импортировано!");
                 resetSearch();
-            } catch (err) { updateStatus("Ошибка: " + err.message, true); }
+                setTimeout(() => { editor.refresh(); }, 50);
+            } catch (err) { 
+                updateStatus("Ошибка: " + err.message, true); 
+            }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    function saveBplist() {
+    // Родной iOS Share Sheet
+    async function shareBplist() {
         try {
-            updateStatus("Сборка в бинарный bplist00...");
+            updateStatus("Сборка bplist00...");
             const xmlText = editor.getValue();
-            
             const obj = xmlPlistToObject(xmlText);
-            if (!obj) throw new Error("Не удалось извлечь структуру данных из XML.");
+            if (!obj) throw new Error("Невалидная XML структура.");
             
-            // Читаем имя из инпута, если оно пустое — даем имя по умолчанию
             let targetName = document.getElementById('filename-display').value.trim();
             if (!targetName) targetName = "patched_file.plist";
             
             const buffer = BplistWriter.create(obj);
-            const blob = new Blob([buffer], { type: "application/x-plist" });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob); 
-            link.download = targetName;
+            const fileData = new Uint8Array(buffer);
             
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            updateStatus("Файл скачан как: " + targetName);
+            const file = new File([fileData], targetName, { type: "application/x-plist" });
+            
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: targetName
+                });
+                updateStatus("Успешно экспортировано!");
+            } else {
+                const blob = new Blob([buffer], { type: "application/x-plist" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = targetName;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                updateStatus("Скачано (Share Sheet недоступен)");
+            }
         } catch (err) { 
-            updateStatus("Ошибка компиляции: " + err.message, true); 
-            alert("Ошибка сборки: " + err.message);
+            updateStatus("Ошибка экспорта", true);
+            alert("Ошибка: " + err.message);
         }
     }
 
@@ -409,18 +576,17 @@
             panel.style.display = 'none';
             clearMarkers();
         }
+        // Пересчитываем высоту редактора при открытии/закрытии панели поиска
+        setTimeout(() => { editor.refresh(); }, 50);
     }
 
     function clearMarkers() {
-        activeMarkers.forEach(m => m.clear());
-        activeMarkers = [];
+        activeMarkers.forEach(m => m.clear()); activeMarkers = [];
         if (currentHighlightMark) { currentHighlightMark.clear(); currentHighlightMark = null; }
     }
 
     function resetSearch() {
-        clearMarkers();
-        searchMatches = [];
-        currentMatchIndex = -1;
+        clearMarkers(); searchMatches = []; currentMatchIndex = -1;
         document.getElementById('search-index-label').innerText = "0/0";
     }
 
@@ -434,43 +600,31 @@
         
         let query;
         if (isRegex) {
-            try {
-                query = new RegExp(queryStr, caseSensitive ? "" : "i");
-            } catch (e) {
-                document.getElementById('search-index-label').innerText = "Err";
-                return;
+            try { query = new RegExp(queryStr, caseSensitive ? "" : "i"); } catch (e) {
+                document.getElementById('search-index-label').innerText = "Err"; return;
             }
-        } else {
-            query = queryStr;
-        }
+        } else { query = queryStr; }
 
         searchMatches = [];
         let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
         
         while (cursor.findNext()) {
-            const from = cursor.from();
-            const to = cursor.to();
+            const from = cursor.from(); const to = cursor.to();
             searchMatches.push({ from: {line: from.line, ch: from.ch}, to: {line: to.line, ch: to.ch} });
             let marker = editor.markText(from, to, { className: "cm-search-marker" });
             activeMarkers.push(marker);
         }
 
         if (searchMatches.length > 0) {
-            currentMatchIndex = 0;
-            updateCounterUI();
+            currentMatchIndex = 0; updateCounterUI();
             if (scroll) highlightCurrentMatch();
-        } else {
-            resetSearch();
-        }
+        } else { resetSearch(); }
     }
 
     function updateCounterUI() {
         const label = document.getElementById('search-index-label');
-        if (searchMatches.length === 0) {
-            label.innerText = "0/0";
-        } else {
-            label.innerText = `${currentMatchIndex + 1}/${searchMatches.length}`;
-        }
+        if (searchMatches.length === 0) label.innerText = "0/0";
+        else label.innerText = `${currentMatchIndex + 1}/${searchMatches.length}`;
     }
 
     function highlightCurrentMatch() {
@@ -484,13 +638,9 @@
 
     function navigateSearch(reverse = false) {
         if (searchMatches.length === 0) return;
-        if (reverse) {
-            currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-        } else {
-            currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
-        }
-        updateCounterUI();
-        highlightCurrentMatch();
+        if (reverse) currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+        else currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+        updateCounterUI(); highlightCurrentMatch();
     }
 
     function doReplace() {
@@ -500,8 +650,7 @@
         initSearchContext(false);
         if (searchMatches.length > 0) {
             if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
-            updateCounterUI();
-            highlightCurrentMatch();
+            updateCounterUI(); highlightCurrentMatch();
         }
     }
 </script>
