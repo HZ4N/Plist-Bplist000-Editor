@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>bplist00 OLED Editor PRO</title>
     
-    <!-- Подключаем шрифт Montserrat -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
     
-    <!-- CodeMirror ЦП -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/xml/xml.min.js"></script>
@@ -18,8 +16,8 @@
 
     <style>
         :root {
-            --bg-color: #000000; /* Чистый OLED черный */
-            --panel-bg: #09090b;  /* Глубокий серый для панелей */
+            --bg-color: #000000;
+            --panel-bg: #09090b;
             --accent-pink: #d946ef;
             --accent-purple: #8b5cf6;
             --text-color: #f4f4f5;
@@ -51,7 +49,6 @@
             height: -webkit-fill-available; 
         }
         
-        /* Верхний Тулбар */
         .toolbar { 
             background-color: var(--panel-bg); 
             padding: 12px 16px; 
@@ -107,11 +104,6 @@
             text-overflow: ellipsis; 
         }
         
-        .filename-input:focus { 
-            border-color: var(--accent-purple); 
-        }
-        
-        /* Панель Поиска */
         .search-panel { 
             background-color: var(--panel-bg); 
             padding: 10px 16px; 
@@ -151,7 +143,6 @@
         .checkbox-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .checkbox-label input { accent-color: var(--accent-pink); }
         
-        /* Редактор */
         .editor-container { 
             flex: 1; 
             position: relative; 
@@ -176,34 +167,17 @@
         .CodeMirror-linenumber { color: #52525b !important; }
         .CodeMirror-cursor { border-left: 2px solid var(--accent-pink) !important; }
         
-        /* Подсветка синтаксиса */
         .cm-tag { color: var(--accent-pink) !important; }
         .cm-meta { color: var(--accent-purple) !important; }
         .cm-string { color: #34d399 !important; }
-        .cm-word { color: var(--text-color); }
         
-        /* Выделение текста в CodeMirror */
-        .CodeMirror-selected { 
-            background-color: rgba(139, 92, 246, 0.2) !important; 
-        }
-        .CodeMirror-focused .CodeMirror-selected { 
-            background-color: rgba(139, 92, 246, 0.25) !important; 
-        }
-
-        /* Мягкая подсветка всех найденных совпадений */
-        .cm-search-marker { 
-            background-color: rgba(139, 92, 246, 0.12) !important; 
-            border: none !important;
-        }
-        
-        /* Текущее активное совпадение */
+        .CodeMirror-selected { background-color: rgba(139, 92, 246, 0.2) !important; }
+        .cm-search-marker { background-color: rgba(139, 92, 246, 0.12) !important; }
         .cm-search-marker-current { 
             background-color: transparent !important; 
-            border: none !important;
             border-bottom: 2px solid var(--accent-pink) !important;
         }
 
-        /* Статусбар */
         .statusbar { 
             background-color: var(--panel-bg); 
             color: var(--text-muted); 
@@ -215,7 +189,6 @@
         }
         .statusbar.error { background-color: #7f1d1d; color: #fca5a5; }
 
-        /* Адаптивность под iPhone */
         @media (max-width: 480px) {
             .toolbar { padding: 10px 12px; }
             .filename-group { order: 3; width: 100%; }
@@ -268,7 +241,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Stable v3.6</span>
+        <span>OLED Stable v3.7</span>
     </div>
 </div>
 
@@ -454,7 +427,7 @@
         return parse();
     }
 
-    // [Полностью исправленный Кодер bplist00]
+    // [Кодер bplist00]
     const BplistWriter = {
         create: function(obj) {
             const offsetTable = []; 
@@ -541,7 +514,6 @@
                     const oldRefs = bytes.slice(headerSize);
                     const newRefs = [];
                     for (let r of oldRefs) {
-                        // ФИКС: Используем BigInt сдвиги, чтобы избежать 32-битного переполнения JS
                         let rBig = BigInt(r);
                         for (let b = objectRefSize - 1; b >= 0; b--) {
                             newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
@@ -551,6 +523,7 @@
                 }
             }
 
+            // ФИКС: Строго сигнатура "bplist00" (98 = 'b')
             let finalBytes = [98, 112, 108, 105, 115, 116, 48, 48]; 
             const actualOffsets = [];
             
@@ -567,7 +540,6 @@
             if (offsetTablePos > 0xFFFFFFFF) offsetIntSize = 8;
 
             actualOffsets.forEach(off => {
-                // ФИКС: Безопасные сдвиги адресов смещений через BigInt
                 let offBig = BigInt(off);
                 for (let b = offsetIntSize - 1; b >= 0; b--) {
                     finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
@@ -657,7 +629,8 @@
             const buffer = BplistWriter.create(obj);
             const fileData = new Uint8Array(buffer);
             
-            const file = new File([fileData], targetName, { type: "application/x-plist" });
+            // ФИКС: Используем универсальный "application/octet-stream", чтобы iOS принудительно отдавала сырые байты в Share Sheet
+            const file = new File([fileData], targetName, { type: "application/octet-stream" });
             
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
@@ -666,12 +639,12 @@
                 });
                 updateStatus("Успешно экспортировано!");
             } else {
-                const blob = new Blob([buffer], { type: "application/x-plist" });
+                const blob = new Blob([buffer], { type: "application/octet-stream" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = targetName;
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                updateStatus("Скачано (Share Sheet недоступен)");
+                updateStatus("Скачано локально");
             }
         } catch (err) { 
             updateStatus("Ошибка экспорта", true);
