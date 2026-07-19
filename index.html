@@ -78,9 +78,7 @@
             border-radius: 8px; 
             font-size: 13px; 
             font-weight: 500; 
-            cursor: pointer; 
-            white-space: nowrap; 
-            transition: all 0.2s ease;
+            cursor: pointer;  white-space: nowrap; transition: all 0.2s ease;
         }
         
         .btn:active { 
@@ -184,15 +182,23 @@
         .cm-string { color: #34d399 !important; }
         .cm-word { color: var(--text-color); }
         
-        /* Мягкая и монолитная подсветка совпадений без рамок */
+        /* Переопределяем системное выделение текста (Selection) в CodeMirror */
+        .CodeMirror-selected { 
+            background-color: rgba(139, 92, 246, 0.2) !important; 
+        }
+        .CodeMirror-focused .CodeMirror-selected { 
+            background-color: rgba(139, 92, 246, 0.25) !important; 
+        }
+
+        /* Мягкая подсветка всех найденных совпадений */
         .cm-search-marker { 
-            background-color: rgba(139, 92, 246, 0.15) !important; 
+            background-color: rgba(139, 92, 246, 0.12) !important; 
             border: none !important;
         }
         
-        /* Текущее активное совпадение: деликатное фиолетовое свечение снизу */
+        /* Текущее активное совпадение: только ультра-аккуратное неоновое подчеркивание */
         .cm-search-marker-current { 
-            background-color: rgba(217, 70, 239, 0.25) !important; 
+            background-color: transparent !important; 
             border: none !important;
             border-bottom: 2px solid var(--accent-pink) !important;
         }
@@ -341,9 +347,9 @@
                 }
                 if (objType === 0xD) {
                     let dictLen = objInfo;
-                    let dictOffset = 1;
-                    if (objInfo === 0x0F) { const res = readLength(offset + 1); dictLen = res.val; dictOffset += res.bytes; }
-                    const keysRefs = []; const valsRefs = []; let ptr = offset + dictOffset;
+                    let dataOffset = 1; // <--- ИСПРАВЛЕНО ЗДЕСЬ (было dictOffset)
+                    if (objInfo === 0x0F) { const res = readLength(offset + 1); dictLen = res.val; dataOffset += res.bytes; }
+                    const keysRefs = []; const valsRefs = []; let ptr = offset + dataOffset;
                     for(let i=0; i<dictLen; i++) { let r = 0; for(let j=0; j<objectRefSize; j++) r = (r << 8) | data.getUint8(ptr++); keysRefs.push(r); }
                     for(let i=0; i<dictLen; i++) { let r = 0; for(let j=0; j<objectRefSize; j++) r = (r << 8) | data.getUint8(ptr++); valsRefs.push(r); }
                     const dict = {};
@@ -671,7 +677,6 @@
         const text = editor.getRange(match.from, match.to);
         const query = getSearchQuery();
         
-        // Корректная обработка групп ($11 и т.д.) через нативный метод строки
         const processedReplace = text.replace(query, replaceStr);
         
         editor.replaceSelection(processedReplace);
@@ -693,7 +698,6 @@
             let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
             while (cursor.findNext()) {
                 const text = editor.getRange(cursor.from(), cursor.to());
-                // Изолированная обработка для каждой строки, чтобы группы работали штатно
                 const processedReplace = text.replace(query, replaceStr);
                 cursor.replace(processedReplace);
             }
