@@ -51,12 +51,12 @@
             height: -webkit-fill-available; 
         }
         
-        /* Верхний Тулбар с поддержкой адаптивности */
+        /* Верхний Тулбар */
         .toolbar { 
             background-color: var(--panel-bg); 
             padding: 12px 16px; 
             display: flex; 
-            flex-wrap: wrap; /* Разрешаем перенос на мобилках */
+            flex-wrap: wrap; 
             align-items: center; 
             justify-content: space-between; 
             border-bottom: 1px solid var(--border-color); 
@@ -96,7 +96,6 @@
         
         #file-input { display: none; }
         
-        /* Поле ввода имени файла */
         .filename-input { 
             background-color: #121214; 
             border: 1px solid var(--border-color); 
@@ -154,14 +153,13 @@
         .checkbox-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .checkbox-label input { accent-color: var(--accent-pink); }
         
-        /* Контейнер редактора занимает ВСЕ свободное место */
+        /* Редактор */
         .editor-container { 
             flex: 1; 
             position: relative; 
             background-color: var(--bg-color); 
         }
         
-        /* Настройки отображения самого CodeMirror */
         .CodeMirror { 
             position: absolute; 
             top: 0; left: 0; right: 0; bottom: 0; 
@@ -180,15 +178,24 @@
         .CodeMirror-linenumber { color: #52525b !important; }
         .CodeMirror-cursor { border-left: 2px solid var(--accent-pink) !important; }
         
-        /* Подсветка синтаксиса в OLED стиле */
+        /* Подсветка синтаксиса */
         .cm-tag { color: var(--accent-pink) !important; }
         .cm-meta { color: var(--accent-purple) !important; }
         .cm-string { color: #34d399 !important; }
         .cm-word { color: var(--text-color); }
         
-        /* Маркеры результатов поиска */
-        .cm-search-marker { background-color: rgba(139, 92, 246, 0.3) !important; border-bottom: 2px solid var(--accent-purple); }
-        .cm-search-marker-current { background-color: rgba(217, 70, 239, 0.4) !important; border: 1px solid var(--accent-pink); }
+        /* Мягкая и монолитная подсветка совпадений без рамок */
+        .cm-search-marker { 
+            background-color: rgba(139, 92, 246, 0.15) !important; 
+            border: none !important;
+        }
+        
+        /* Текущее активное совпадение: деликатное фиолетовое свечение снизу */
+        .cm-search-marker-current { 
+            background-color: rgba(217, 70, 239, 0.25) !important; 
+            border: none !important;
+            border-bottom: 2px solid var(--accent-pink) !important;
+        }
 
         /* Статусбар */
         .statusbar { 
@@ -202,19 +209,11 @@
         }
         .statusbar.error { background-color: #7f1d1d; color: #fca5a5; }
 
-        /* Специфичные фиксы для экранов мобильных телефонов (iPhone) */
+        /* Адаптивность под iPhone */
         @media (max-width: 480px) {
-            .toolbar {
-                padding: 10px 12px;
-            }
-            .filename-group {
-                order: 3; /* Сдвигаем инпут имени файла на вторую строчку */
-                width: 100%;
-            }
-            .filename-input {
-                width: 100%; /* Делаем инпут на всю ширину снизу кнопок */
-                max-width: none;
-            }
+            .toolbar { padding: 10px 12px; }
+            .filename-group { order: 3; width: 100%; }
+            .filename-input { width: 100%; max-width: none; }
         }
     </style>
 </head>
@@ -227,7 +226,6 @@
             <input type="file" id="file-input" onchange="handleFileSelect(event)">
         </div>
         
-        <!-- Обернули инпут в отдельный класс для контроля переноса строки -->
         <div class="btn-group filename-group">
             <input type="text" id="filename-display" class="filename-input" placeholder="Имя файла..." value="patch.plist">
         </div>
@@ -250,6 +248,7 @@
         <div class="search-row">
             <input type="text" id="replace-term" class="search-input" placeholder="Заменить на...">
             <button class="btn" onclick="doReplace()">Заменить</button>
+            <button class="btn" onclick="doReplaceAll()">Все</button>
         </div>
         <div class="search-options">
             <label class="checkbox-label"><input type="checkbox" id="search-regex" checked onchange="initSearchContext()"> RegExp</label>
@@ -263,7 +262,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Stable v3.2</span>
+        <span>OLED Stable v3.4</span>
     </div>
 </div>
 
@@ -607,21 +606,25 @@
         document.getElementById('search-index-label').innerText = "0/0";
     }
 
-    function initSearchContext(scroll = true) {
-        clearMarkers();
+    function getSearchQuery() {
         const queryStr = document.getElementById('search-term').value;
-        if (!queryStr) { resetSearch(); return; }
+        if (!queryStr) return null;
 
         const isRegex = document.getElementById('search-regex').checked;
         const caseSensitive = document.getElementById('search-case').checked;
         
-        let query;
         if (isRegex) {
-            try { query = new RegExp(queryStr, caseSensitive ? "" : "i"); } catch (e) {
-                document.getElementById('search-index-label').innerText = "Err"; return;
-            }
-        } else { query = queryStr; }
+            try { return new RegExp(queryStr, caseSensitive ? "g" : "gi"); } catch (e) { return null; }
+        }
+        return queryStr;
+    }
 
+    function initSearchContext(scroll = true) {
+        clearMarkers();
+        const query = getSearchQuery();
+        if (!query) { resetSearch(); return; }
+
+        const caseSensitive = document.getElementById('search-case').checked;
         searchMatches = [];
         let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
         
@@ -663,12 +666,41 @@
     function doReplace() {
         if (searchMatches.length === 0 || currentMatchIndex === -1) return;
         const replaceStr = document.getElementById('replace-term').value;
-        editor.replaceSelection(replaceStr);
+        
+        const match = searchMatches[currentMatchIndex];
+        const text = editor.getRange(match.from, match.to);
+        const query = getSearchQuery();
+        
+        // Корректная обработка групп ($11 и т.д.) через нативный метод строки
+        const processedReplace = text.replace(query, replaceStr);
+        
+        editor.replaceSelection(processedReplace);
         initSearchContext(false);
         if (searchMatches.length > 0) {
             if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
             updateCounterUI(); highlightCurrentMatch();
         }
+    }
+
+    function doReplaceAll() {
+        const query = getSearchQuery();
+        if (!query || searchMatches.length === 0) return;
+        
+        const replaceStr = document.getElementById('replace-term').value;
+        const caseSensitive = document.getElementById('search-case').checked;
+        
+        editor.operation(() => {
+            let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
+            while (cursor.findNext()) {
+                const text = editor.getRange(cursor.from(), cursor.to());
+                // Изолированная обработка для каждой строки, чтобы группы работали штатно
+                const processedReplace = text.replace(query, replaceStr);
+                cursor.replace(processedReplace);
+            }
+        });
+        
+        updateStatus(`Успешно заменено элементов: ${searchMatches.length}`);
+        resetSearch();
     }
 </script>
 </body>
