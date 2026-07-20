@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>bplist00 OLED Editor PRO v4.3</title>
+    <title>bplist00 OLED Editor PRO v5.1</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -235,7 +235,7 @@
 
     <div class="statusbar" id="statusbar">
         <span id="status-text">Ожидание файла...</span>
-        <span>OLED Direct Downloader v4.3</span>
+        <span>bplist00 Mirror Engine v5.1</span>
     </div>
 </div>
 
@@ -338,6 +338,7 @@
         }
     };
 
+    // [Исправленный XML-генератор, устойчивый к пустым тегам]
     function objectToXmlPlist(obj) {
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n';
         function convert(item, indent = "  ") {
@@ -358,10 +359,13 @@
                 return indent + `<string>${escaped}</string>\n`;
             }
             if (Array.isArray(item)) {
+                if (item.length === 0) return indent + '<array/>\n';
                 let res = indent + '<array>\n'; item.forEach(v => { res += convert(v, indent + "  "); });
                 return res + indent + '</array>\n';
             }
             if (typeof item === 'object') {
+                const keys = Object.keys(item);
+                if (keys.length === 0) return indent + '<dict/>\n';
                 let res = indent + '<dict>\n';
                 for (let key in item) {
                     const escapedKey = key.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -374,6 +378,7 @@
         return xml + convert(obj) + '</plist>';
     }
 
+    // [Исправленный XML-парсер, игнорирующий форматирование CodeMirror]
     function xmlPlistToObject(xmlString) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlString, "text/xml");
@@ -383,21 +388,15 @@
         const plist = xmlDoc.getElementsByTagName("plist")[0];
         if (!plist) throw new Error("Тег <plist> не найден!");
         
-        let rootNode = null;
-        for (let i = 0; i < plist.childNodes.length; i++) {
-            if (plist.childNodes[i].nodeType === 1) { 
-                rootNode = plist.childNodes[i];
-                break;
-            }
-        }
+        const rootNode = Array.from(plist.childNodes).find(node => node.nodeType === 1);
         if (!rootNode) throw new Error("Корневой элемент контейнера пуст!");
         return parseNodeValue(rootNode);
 
         function parseNodeValue(node) {
             const name = node.tagName.toLowerCase();
-            if (name === "string") return node.textContent;
-            if (name === "integer") return parseInt(node.textContent.trim(), 10);
-            if (name === "real") return parseFloat(node.textContent.trim());
+            if (name === "string") return node.textContent || ""; 
+            if (name === "integer") return parseInt(node.textContent.trim(), 10) || 0;
+            if (name === "real") return parseFloat(node.textContent.trim()) || 0.0;
             if (name === "true") return true;
             if (name === "false") return false;
             if (name === "data") {
@@ -410,108 +409,149 @@
             }
             if (name === "dict") {
                 const dict = {}; let currentKey = null;
-                for (let i = 0; i < node.childNodes.length; i++) {
-                    const child = node.childNodes[i];
-                    if (child.nodeType === 1) {
-                        if (child.tagName.toLowerCase() === "key") currentKey = child.textContent.trim();
-                        else if (currentKey) { dict[currentKey] = parseNodeValue(child); currentKey = null; }
+                const children = Array.from(node.childNodes).filter(n => n.nodeType === 1);
+                for (let child of children) {
+                    if (child.tagName.toLowerCase() === "key") {
+                        currentKey = child.textContent.trim();
+                    } else if (currentKey !== null) {
+                        dict[currentKey] = parseNodeValue(child); currentKey = null; 
                     }
                 }
                 return dict;
             }
             if (name === "array") {
-                const arr = [];
-                for (let i = 0; i < node.childNodes.length; i++) {
-                    const child = node.childNodes[i];
-                    if (child.nodeType === 1) arr.push(parseNodeValue(child));
-                }
-                return arr;
+                const children = Array.from(node.childNodes).filter(n => n.nodeType === 1);
+                return children.map(parseNodeValue);
             }
             return null;
         }
     }
 
-    // [Кодер bplist00]
+    // [Зеркальный Компилятор bplist00 Версии 5.1 — Без Смещений]
     const BplistWriter = {
         create: function(obj) {
-            const offsetTable = []; 
-            const objMap = new Map();
-            
-            function serialize(item) {
-                if (item === null) return writeRawObject([0x00]);
-                if (item === false) return writeRawObject([0x08]);
-                if (item === true) return writeRawObject([0x09]);
-                if (typeof item === 'object' || typeof item === 'string') {
-                    if (objMap.has(item)) return objMap.get(item);
-                }
-                const currentRef = offsetTable.length;
-                if (typeof item === 'object' || typeof item === 'string') objMap.set(item, currentRef);
+            const uniqueObjects = [];
+            const stringMap = new Map();
+            const numberMap = new Map();
+
+            function collectObjects(item) {
+                if (item === null || typeof item === 'boolean') return;
                 
+                if (typeof item === 'string') {
+                    if (!stringMap.has(item)) {
+                        stringMap.set(item, uniqueObjects.length);
+                        uniqueObjects.push({ type: 'string', value: item });
+                    }
+                    return;
+                }
                 if (typeof item === 'number') {
-                    if (Number.isInteger(item)) {
-                        const buf = new ArrayBuffer(8);
-                        new DataView(buf).setBigInt64(0, BigInt(item));
-                        offsetTable.push([0x13, ...new Uint8Array(buf)]);
+                    const key = Object.is(item, -0) ? '-0' : item.toString();
+                    if (!numberMap.has(key)) {
+                        numberMap.set(key, uniqueObjects.length);
+                        uniqueObjects.push({ type: 'number', value: item });
+                    }
+                    return;
+                }
+                if (Array.isArray(item)) {
+                    item.forEach(collectObjects);
+                    uniqueObjects.push({ type: 'array', value: item });
+                    return;
+                }
+                if (typeof item === 'object') {
+                    Object.keys(item).forEach(k => collectObjects(k));
+                    Object.values(item).forEach(v => collectObjects(v));
+                    uniqueObjects.push({ type: 'dict', value: item });
+                }
+            }
+
+            collectObjects(obj);
+            const rootRef = uniqueObjects.length - 1;
+
+            function getIntBytes(val) {
+                if (val >= -128 && val <= 127) return { marker: 0x10, bytes: [val & 0xFF] };
+                if (val >= -32768 && val <= 32767) return { marker: 0x11, bytes: [(val >> 8) & 0xFF, val & 0xFF] };
+                if (val >= -2147483648 && val <= 2147483647) {
+                    return { marker: 0x12, bytes: [(val >> 24) & 0xFF, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF] };
+                }
+                const buf = new ArrayBuffer(8);
+                new DataView(buf).setBigInt64(0, BigInt(val));
+                return { marker: 0x13, bytes: Array.from(new Uint8Array(buf)) };
+            }
+
+            function getRefId(item) {
+                if (item === null) return 0x00; 
+                if (item === false) return 0x08;
+                if (item === true) return 0x09;
+                if (typeof item === 'string') return stringMap.get(item);
+                if (typeof item === 'number') return numberMap.get(Object.is(item, -0) ? '-0' : item.toString());
+                return uniqueObjects.findIndex(o => o.value === item);
+            }
+
+            const offsetTable = [];
+
+            uniqueObjects.forEach(obj => {
+                if (obj.type === 'number') {
+                    if (Number.isInteger(obj.value)) {
+                        const packed = getIntBytes(obj.value);
+                        offsetTable.push([packed.marker, ...packed.bytes]);
                     } else {
                         const buf = new ArrayBuffer(8);
-                        new DataView(buf).setFloat64(0, item);
+                        new DataView(buf).setFloat64(0, obj.value);
                         offsetTable.push([0x23, ...new Uint8Array(buf)]);
                     }
-                } else if (typeof item === 'string') {
-                    if (item.startsWith("{hex_data}:")) {
-                        const hex = item.replace("{hex_data}:", "");
+                } else if (obj.type === 'string') {
+                    if (obj.value.startsWith("{hex_data}:")) {
+                        const hex = obj.value.replace("{hex_data}:", "");
                         const bytes = [];
                         for (let c = 0; c < hex.length; c += 2) bytes.push(parseInt(hex.substr(c, 2), 16));
                         writeLengthMarker(0x40, bytes.length, bytes);
                     } else {
                         const encoder = new TextEncoder();
-                        const raw = encoder.encode(item);
+                        const raw = encoder.encode(obj.value);
                         writeLengthMarker(0x50, raw.length, Array.from(raw));
                     }
-                } else if (Array.isArray(item)) {
-                    const refs = item.map(serialize);
+                } else if (obj.type === 'array') {
+                    const refs = obj.value.map(getRefId);
                     writeLengthMarker(0xA0, refs.length, refs);
-                } else if (typeof item === 'object') {
-                    const keys = Object.keys(item);
-                    const kRefs = keys.map(serialize);
-                    const vRefs = keys.map(k => serialize(item[k]));
+                } else if (obj.type === 'dict') {
+                    const keys = Object.keys(obj.value);
+                    const kRefs = keys.map(getRefId);
+                    const vRefs = keys.map(k => getRefId(obj.value[k]));
                     writeLengthMarker(0xD0, keys.length, [...kRefs, ...vRefs]);
                 }
-                return currentRef;
-            }
-
-            function writeRawObject(bytes) {
-                const ref = offsetTable.length; offsetTable.push(bytes); return ref;
-            }
+            });
 
             function writeLengthMarker(type, length, payload) {
-                if (length < 15) { offsetTable.push([type | length, ...payload]); } 
-                else {
-                    let lenBytes = [];
-                    if (length <= 0xFF) { lenBytes = [0x10, length]; }
-                    else if (length <= 0xFFFF) { lenBytes = [0x11, (length >> 8) & 0xFF, length & 0xFF]; }
-                    else { lenBytes = [0x12, (length >> 24) & 0xFF, (length >> 16) & 0xFF, (length >> 8) & 0xFF, length & 0xFF]; }
-                    offsetTable.push([type | 0x0F, ...lenBytes, ...payload]);
+                if (length < 15) {
+                    offsetTable.push([type | length, ...payload]);
+                } else {
+                    const lenPacked = getIntBytes(length);
+                    offsetTable.push([type | 0x0F, lenPacked.marker, ...lenPacked.bytes, ...payload]);
                 }
             }
 
-            serialize(obj);
-            const numObjects = offsetTable.length;
+            const numObjects = uniqueObjects.length;
             let objectRefSize = 1;
             if (numObjects > 0xFF) objectRefSize = 2;
             if (numObjects > 0xFFFF) objectRefSize = 4;
 
-            for (let i = 0; i < numObjects; i++) {
+            for (let i = 0; i < offsetTable.length; i++) {
                 const bytes = offsetTable[i];
                 const type = bytes[0] & 0xF0;
                 if (type === 0xA0 || type === 0xD0) {
-                    const headerSize = (bytes[0] & 0x0F) === 0x0F ? (bytes[1] === 0x10 ? 3 : bytes[1] === 0x11 ? 4 : 6) : 1;
+                    let headerSize = 1;
+                    if ((bytes[0] & 0x0F) === 0x0F) {
+                        headerSize = bytes[1] === 0x10 ? 3 : bytes[1] === 0x11 ? 4 : bytes[1] === 0x12 ? 6 : 10;
+                    }
                     const meta = bytes.slice(0, headerSize);
                     const oldRefs = bytes.slice(headerSize);
                     const newRefs = [];
+
                     for (let r of oldRefs) {
                         let rBig = BigInt(r);
-                        for (let b = objectRefSize - 1; b >= 0; b--) newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
+                        for (let b = objectRefSize - 1; b >= 0; b--) {
+                            newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
+                        }
                     }
                     offsetTable[i] = [...meta, ...newRefs];
                 }
@@ -519,9 +559,14 @@
 
             let finalBytes = [98, 112, 108, 105, 115, 116, 48, 48]; 
             const actualOffsets = [];
-            offsetTable.forEach(bytes => { actualOffsets.push(finalBytes.length); finalBytes.push(...bytes); });
+
+            offsetTable.forEach(bytes => {
+                actualOffsets.push(finalBytes.length);
+                finalBytes.push(...bytes);
+            });
 
             const offsetTablePos = finalBytes.length;
+
             let offsetIntSize = 1;
             if (offsetTablePos > 0xFF) offsetIntSize = 2;
             if (offsetTablePos > 0xFFFF) offsetIntSize = 4;
@@ -529,17 +574,25 @@
 
             actualOffsets.forEach(off => {
                 let offBig = BigInt(off);
-                for (let b = offsetIntSize - 1; b >= 0; b--) finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
+                for (let b = offsetIntSize - 1; b >= 0; b--) {
+                    finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
+                }
             });
 
             const trailer = new Array(32).fill(0);
-            trailer[6] = offsetIntSize; trailer[7] = objectRefSize;
+            trailer[6] = offsetIntSize;
+            trailer[7] = objectRefSize;
+            
             const numObjBig = BigInt(numObjects);
             for(let i=0; i<8; i++) trailer[8+i] = Number((numObjBig >> BigInt((7-i)*8)) & 0xFFn);
+            
+            const rootRefBig = BigInt(rootRef);
+            for(let i=0; i<8; i++) trailer[16+i] = Number((rootRefBig >> BigInt((7-i)*8)) & 0xFFn);
+            
             const tablePosBig = BigInt(offsetTablePos);
             for(let i=0; i<8; i++) trailer[24+i] = Number((tablePosBig >> BigInt((7-i)*8)) & 0xFFn);
 
-            finalBytes.push(...trailer); 
+            finalBytes.push(...trailer);
             return new Uint8Array(finalBytes).buffer;
         }
     };
@@ -595,10 +648,10 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // [Исправленный метод сохранения — Прямой Blob-скачиватель]
-    function shareBplist() {
+    // [Метод выгрузки через Share API — с поддержкой вывода]
+    async function shareBplist() {
         try {
-            updateStatus("Компиляция...");
+            updateStatus("Компиляция в bplist00...");
             const xmlText = editor.getValue();
             const obj = xmlPlistToObject(xmlText);
             
@@ -606,24 +659,27 @@
             if (!targetName) targetName = "patched_file.plist";
             
             const buffer = BplistWriter.create(obj);
+            const fileData = new Uint8Array(buffer);
             
-            // Задаем строгий MIME-тип для Apple property list вместо общего стрима
-            const blob = new Blob([buffer], { type: "application/x-plist" });
+            const file = new File([fileData], targetName, { type: "application/octet-stream" });
             
-            // Чистый принудительный download без использования Share API
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = targetName;
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            URL.revokeObjectURL(link.href);
-            updateStatus("Файл bplist00 успешно загружен!");
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: targetName
+                });
+                updateStatus("Экспортирован чистый bplist00!");
+            } else {
+                const blob = new Blob([buffer], { type: "application/octet-stream" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = targetName;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                updateStatus("Скачан файл через Blob.");
+            }
         } catch (err) { 
-            updateStatus("Ошибка!", true);
-            alert("Ошибка: " + err.message);
+            updateStatus("Ошибка компиляции!", true);
+            alert("Ошибка сборщика: " + err.message);
         }
     }
 
@@ -650,6 +706,7 @@
         document.getElementById('search-index-label').innerText = "0/0";
     }
 
+    // [Поиск контекста]
     function getSearchQuery() {
         const queryStr = document.getElementById('search-term').value;
         if (!queryStr) return null;
