@@ -1,799 +1,859 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>bplist00 OLED Editor PRO v5.1</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/search/searchcursor.min.js"></script>
-
-    <style>
-        :root {
-            --bg-color: #000000;
-            --panel-bg: #09090b;
-            --accent-pink: #d946ef;
-            --accent-purple: #8b5cf6;
-            --text-color: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --border-color: #27272a;
-        }
-        
-        * { 
-            box-sizing: border-box; 
-            margin: 0; 
-            padding: 0; 
-            -webkit-tap-highlight-color: transparent; 
-            font-family: 'Montserrat', sans-serif;
-        }
-        
-        body, html { 
-            width: 100%; 
-            height: 100%; 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            overflow: hidden; 
-            position: fixed; 
-        }
-        
-        .app-container { 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            height: -webkit-fill-available; 
-        }
-        
-        .toolbar { 
-            background-color: var(--panel-bg); 
-            padding: 12px 16px; 
-            display: flex; 
-            flex-wrap: wrap; 
-            align-items: center; 
-            justify-content: space-between; 
-            border-bottom: 1px solid var(--border-color); 
-            gap: 10px; 
-            z-index: 10; 
-        }
-        
-        .btn-group { 
-            display: flex; 
-            gap: 8px; 
-            align-items: center; 
-        }
-        
-        .btn { 
-            background-color: #18181b; 
-            color: #ffffff; 
-            border: 1px solid var(--border-color); 
-            padding: 10px 14px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            font-weight: 500; 
-            cursor: pointer;  white-space: nowrap; transition: all 0.2s ease;
-        }
-        
-        .btn:active { 
-            transform: scale(0.96); 
-            border-color: var(--accent-pink); 
-        }
-        
-        .btn-primary { 
-            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)); 
-            border: none; 
-            color: #ffffff; 
-        }
-        
-        #file-input { display: none; }
-        
-        .filename-input { 
-            background-color: #121214; 
-            border: 1px solid var(--border-color); 
-            color: #fff; 
-            padding: 9px 12px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            font-weight: 400; 
-            width: 140px; 
-            outline: none; 
-            text-overflow: ellipsis; 
-        }
-        
-        .search-panel { 
-            background-color: var(--panel-bg); 
-            padding: 10px 16px; 
-            border-bottom: 1px solid var(--border-color); 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-        }
-        
-        .search-row { display: flex; gap: 8px; position: relative; }
-        .search-input-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
-        
-        .search-input { 
-            width: 100%; 
-            background-color: #121214; 
-            border: 1px solid var(--border-color); 
-            color: #fff; 
-            padding: 10px 65px 10px 12px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            outline: none; 
-        }
-        
-        .search-counter { 
-            position: absolute; 
-            right: 10px; 
-            font-size: 11px; 
-            font-weight: 500; 
-            color: var(--text-muted); 
-            background: #18181b; 
-            padding: 2px 6px; 
-            border-radius: 4px; 
-            pointer-events: none; 
-        }
-        
-        .search-options { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); }
-        .checkbox-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-        .checkbox-label input { accent-color: var(--accent-pink); }
-        
-        .editor-container { 
-            flex: 1; 
-            position: relative; 
-            background-color: var(--bg-color); 
-        }
-        
-        .CodeMirror { 
-            position: absolute; 
-            top: 0; left: 0; right: 0; bottom: 0; 
-            height: 100% !important; 
-            background: var(--bg-color) !important; 
-            color: #e4e4e7 !important; 
-            font-family: 'Courier New', monospace; 
-            font-size: 14px; 
-        }
-        
-        .CodeMirror-gutters { 
-            background-color: var(--bg-color) !important; 
-            border-right: 1px solid var(--border-color) !important; 
-        }
-        
-        .CodeMirror-linenumber { color: #52525b !important; }
-        .CodeMirror-cursor { border-left: 2px solid var(--accent-pink) !important; }
-        
-        .cm-tag { color: var(--accent-pink) !important; }
-        .cm-meta { color: var(--accent-purple) !important; }
-        .cm-string { color: #34d399 !important; }
-        
-        .CodeMirror-selected { background-color: rgba(139, 92, 246, 0.2) !important; }
-        .cm-search-marker { background-color: rgba(139, 92, 246, 0.12) !important; }
-        .cm-search-marker-current { 
-            background-color: transparent !important; 
-            border-bottom: 2px solid var(--accent-pink) !important;
-        }
-
-        .statusbar { 
-            background-color: var(--panel-bg); 
-            color: var(--text-muted); 
-            padding: 6px 16px; 
-            font-size: 11px; 
-            display: flex; 
-            justify-content: space-between; 
-            border-top: 1px solid var(--border-color); 
-        }
-        .statusbar.error { background-color: #7f1d1d; color: #fca5a5; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Редактор Binary Plist</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --border:#2a2f3a;
+    --text:#e6e8eb; --dim:#8b93a1; --accent:#5b8cff; --accent2:#7c5bff;
+    --ok:#3ecf8e; --warn:#f2a93b; --danger:#ef5a5a; --mono:'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+  header{padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5;}
+  header h1{font-size:15px;margin:0 0 8px 0;font-weight:600;letter-spacing:.2px;}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .fileRow{margin-bottom:8px;}
+  button, .btn{
+    background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer;white-space:nowrap;
+  }
+  button:active{transform:scale(.97);}
+  button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:white;font-weight:600;}
+  button.small{padding:4px 8px;font-size:12px;border-radius:6px;}
+  button.danger{color:var(--danger);border-color:var(--danger);}
+  input[type=text], input[type=search]{
+    background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:7px 9px;font-size:13px;font-family:var(--mono);
+  }
+  #searchInput{flex:1;min-width:120px;}
+  label.chk{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--dim);user-select:none;}
+  #status{font-size:12px;color:var(--dim);margin-top:6px;min-height:16px;}
+  #matchInfo{font-size:12px;color:var(--dim);white-space:nowrap;}
+  main{flex:1;overflow:auto;padding:10px 8px 80px 8px;}
+  #dropzone{
+    margin:20px;padding:40px 16px;border:2px dashed var(--border);border-radius:14px;
+    text-align:center;color:var(--dim);
+  }
+  #dropzone.drag{border-color:var(--accent);color:var(--text);}
+  .node{margin-left:14px;border-left:1px dashed var(--border);padding-left:8px;position:relative;}
+  .node.root{margin-left:0;border-left:none;padding-left:0;}
+  .nodeHeader{display:flex;align-items:center;gap:6px;padding:3px 2px;border-radius:6px;flex-wrap:wrap;}
+  .nodeHeader.matched{outline:2px solid var(--warn);}
+  .nodeHeader.current{outline:2px solid var(--accent);background:rgba(91,140,255,.15);}
+  .toggle{width:18px;height:18px;flex:0 0 18px;display:flex;align-items:center;justify-content:center;
+    color:var(--dim);cursor:pointer;font-size:11px;user-select:none;border-radius:4px;}
+  .toggle:hover{background:var(--panel2);}
+  .keyInput{font-family:var(--mono);font-weight:600;color:#9fc4ff;background:transparent;border:1px solid transparent;
+    border-radius:5px;padding:3px 5px;min-width:40px;max-width:160px;}
+  .keyInput:focus{background:var(--panel2);border-color:var(--border);}
+  .typeTag{font-size:10px;color:var(--dim);background:var(--panel2);border-radius:5px;padding:2px 5px;flex:0 0 auto;}
+  .valInput{font-family:var(--mono);background:var(--panel2);border:1px solid var(--border);border-radius:5px;
+    padding:4px 6px;color:var(--text);flex:1;min-width:80px;}
+  select.typeSelect{font-size:11px;background:var(--panel2);color:var(--dim);border:1px solid var(--border);
+    border-radius:5px;padding:2px 3px;flex:0 0 auto;}
+  .rowActions{display:flex;gap:3px;flex:0 0 auto;}
+  .countTag{font-size:11px;color:var(--dim);}
+  .children{margin-top:2px;}
+  .children.collapsed{display:none;}
+  .addBar{margin:4px 0 4px 18px;display:flex;gap:5px;flex-wrap:wrap;}
+  .indexTag{font-family:var(--mono);color:var(--dim);font-size:11px;flex:0 0 22px;text-align:right;}
+  footer{position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--border);padding:8px 12px;
+    display:flex;gap:8px;z-index:5;}
+  footer button{flex:1;}
+  ::selection{background:rgba(91,140,255,.4);}
+</style>
 </head>
 <body>
-
-<div class="app-container">
-    <div class="toolbar">
-        <div class="btn-group">
-            <button class="btn" onclick="document.getElementById('file-input').click()">Открыть</button>
-            <input type="file" id="file-input" onchange="handleFileSelect(event)">
-        </div>
-        
-        <div class="btn-group filename-group">
-            <input type="text" id="filename-display" class="filename-input" placeholder="Имя файла..." value="patch.plist">
-        </div>
-        
-        <div class="btn-group">
-            <button class="btn" onclick="triggerSearch()">Поиск</button>
-            <button class="btn btn-primary" onclick="shareBplist()">Сохранить</button>
-        </div>
+<div id="app">
+  <header>
+    <h1>🗂 Редактор Binary Plist</h1>
+    <div class="row fileRow">
+      <input type="file" id="fileInput" style="display:none">
+      <button class="btn" id="openBtn">📂 Открыть .plist</button>
+      <button class="btn" id="newBtn">➕ Новый (пустой dict)</button>
     </div>
-
-    <div class="search-panel" id="custom-search-panel" style="display: none;">
-        <div class="search-row">
-            <div class="search-input-wrapper">
-                <input type="text" id="search-term" class="search-input" placeholder="Найти..." oninput="initSearchContext()">
-                <span class="search-counter" id="search-index-label">0/0</span>
-            </div>
-            <button class="btn" onclick="navigateSearch(false)">↓</button>
-            <button class="btn" onclick="navigateSearch(true)">↑</button>
-        </div>
-        <div class="search-row">
-            <input type="text" id="replace-term" class="search-input" placeholder="Заменить на...">
-            <button class="btn" onclick="doReplace()">Заменить</button>
-            <button class="btn" onclick="doReplaceAll()">Все</button>
-        </div>
-        <div class="search-options">
-            <label class="checkbox-label"><input type="checkbox" id="search-regex" checked onchange="initSearchContext()"> RegExp</label>
-            <label class="checkbox-label"><input type="checkbox" id="search-case" onchange="initSearchContext()"> Регистр</label>
-        </div>
+    <div class="row">
+      <input type="search" id="searchInput" placeholder="Поиск по ключам и значениям…">
+      <label class="chk"><input type="checkbox" id="regexToggle"> Regex</label>
+      <label class="chk"><input type="checkbox" id="caseToggle"> Aa</label>
+      <button class="small" id="prevBtn">◀</button>
+      <button class="small" id="nextBtn">▶</button>
+      <span id="matchInfo"></span>
     </div>
+    <div id="status"></div>
+  </header>
 
-    <div class="editor-container">
-        <textarea id="editor"></textarea>
-    </div>
+  <main id="main">
+    <div id="dropzone">Перетащите сюда .plist файл<br>или нажмите «Открыть .plist»</div>
+    <div id="treeRoot"></div>
+  </main>
 
-    <div class="statusbar" id="statusbar">
-        <span id="status-text">Ожидание файла...</span>
-        <span>bplist00 Mirror Engine v5.1</span>
-    </div>
+  <footer id="footer" style="display:none">
+    <button class="primary" id="exportBtn">⬇️ Экспорт .plist</button>
+    <button id="exportXmlBtn">⬇️ Экспорт как XML</button>
+  </footer>
 </div>
 
 <script>
-    // [Декодер bplist00]
-    const BplistReader = {
-        parse: function(buffer) {
-            const data = new DataView(buffer);
-            const len = buffer.byteLength;
-            if (len < 32) throw new Error("Файл слишком мал");
-            let header = "";
-            for(let i=0; i<8; i++) header += String.fromCharCode(data.getUint8(i));
-            if (!header.startsWith("bplist00")) throw new Error("Это не bplist00 формат!");
-            const trailerOffset = len - 32;
-            const offsetIntSize = data.getUint8(trailerOffset + 6);
-            const objectRefSize = data.getUint8(trailerOffset + 7);
-            const numObjects = Number(data.getBigUint64(trailerOffset + 8));
-            const topObject = Number(data.getBigUint64(trailerOffset + 16));
-            const offsetTableOffset = Number(data.getBigUint64(trailerOffset + 24));
-            const offsets = [];
-            for (let i = 0; i < numObjects; i++) {
-                let off = 0;
-                const ptr = offsetTableOffset + i * offsetIntSize;
-                for (let j = 0; j < offsetIntSize; j++) off = (off << 8) | data.getUint8(ptr + j);
-                offsets.push(off);
-            }
-            function readObject(ref) {
-                const offset = offsets[ref];
-                const typeByte = data.getUint8(offset);
-                const objType = typeByte >> 4;
-                let objInfo = typeByte & 0x0F;
-                if (objType === 0x0) {
-                    if (objInfo === 0x00) return null;
-                    if (objInfo === 0x08) return false;
-                    if (objInfo === 0x09) return true;
-                    return null;
-                }
-                if (objType === 0x1) {
-                    const bytes = 1 << objInfo;
-                    let val = 0n;
-                    for(let i=0; i<bytes; i++) val = (val << 8n) | BigInt(data.getUint8(offset + 1 + i));
-                    return Number(val);
-                }
-                if (objType === 0x2) {
-                    const bytes = 1 << objInfo;
-                    if (bytes === 4) return data.getFloat32(offset + 1);
-                    if (bytes === 8) return data.getFloat64(offset + 1);
-                }
-                if (objType === 0x4) {
-                    let dataLen = objInfo;
-                    let dataOffset = 1;
-                    if (objInfo === 0x0F) { const res = readLength(offset + 1); dataLen = res.val; dataOffset += res.bytes; }
-                    let out = "";
-                    for(let i=0; i<dataLen; i++) out += data.getUint8(offset + dataOffset + i).toString(16).padStart(2, '0');
-                    return `{hex_data}:${out}`;
-                }
-                if (objType === 0x5) {
-                    let strLen = objInfo;
-                    let strOffset = 1;
-                    if (objInfo === 0x0F) { const res = readLength(offset + 1); strLen = res.val; strOffset += res.bytes; }
-                    let s = "";
-                    for(let i=0; i<strLen; i++) s += String.fromCharCode(data.getUint8(offset + strOffset + i));
-                    return s;
-                }
-                if (objType === 0xA || objType === 0xC) {
-                    let arrLen = objInfo;
-                    let arrOffset = 1;
-                    if (objInfo === 0x0F) { const res = readLength(offset + 1); arrLen = res.val; arrOffset += res.bytes; }
-                    const list = [];
-                    for(let i=0; i<arrLen; i++) {
-                        let refId = 0; const ptr = offset + arrOffset + i * objectRefSize;
-                        for(let j=0; j<objectRefSize; j++) refId = (refId << 8) | data.getUint8(ptr + j);
-                        list.push(readObject(refId));
-                    }
-                    return list;
-                }
-                if (objType === 0xD) {
-                    let dictLen = objInfo;
-                    let dataOffset = 1; 
-                    if (objInfo === 0x0F) { const res = readLength(offset + 1); dictLen = res.val; dataOffset += res.bytes; }
-                    const keysRefs = []; const valsRefs = []; let ptr = offset + dataOffset;
-                    for(let i=0; i<dictLen; i++) { let r = 0; for(let j=0; j<objectRefSize; j++) r = (r << 8) | data.getUint8(ptr++); keysRefs.push(r); }
-                    for(let i=0; i<dictLen; i++) { let r = 0; for(let j=0; j<objectRefSize; j++) r = (r << 8) | data.getUint8(ptr++); valsRefs.push(r); }
-                    const dict = {};
-                    for(let i=0; i<dictLen; i++) { const key = String(readObject(keysRefs[i])); dict[key] = readObject(valsRefs[i]); }
-                    return dict;
-                }
-                return null;
-            }
-            function readLength(off) {
-                const b = data.getUint8(off);
-                if ((b >> 4) === 0x1) {
-                    const bytes = 1 << (b & 0x0F); let val = 0;
-                    for(let i=0; i<bytes; i++) val = (val << 8) | data.getUint8(off + 1 + i);
-                    return { val, bytes: bytes + 1 };
-                }
-                return { val: b, bytes: 1 };
-            }
-            return readObject(topObject);
+'use strict';
+
+/* =========================================================
+   1. BINARY PLIST PARSER / WRITER
+   ========================================================= */
+function bytesToUIntNumber(arr){let r=0;for(let i=0;i<arr.length;i++)r=r*256+arr[i];return r;}
+function bytesToBigIntUnsigned(arr){let r=0n;for(let i=0;i<arr.length;i++)r=(r<<8n)|BigInt(arr[i]);return r;}
+function bytesToBigIntSigned(arr){let v=bytesToBigIntUnsigned(arr);const bits=BigInt(arr.length*8);const max=1n<<(bits-1n);if(v>=max)v-=(1n<<bits);return v;}
+function bytesToBase64(bytes){let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin);}
+function base64ToBytes(b64){const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;}
+const EPOCH_OFFSET=978307200;
+
+function parseBinaryPlist(bytes){
+  if(bytes.length<40) throw new Error('Файл слишком мал для binary plist');
+  const headerStr=String.fromCharCode(...bytes.slice(0,6));
+  if(headerStr!=='bplist') throw new Error('Это не binary plist (нет заголовка bplist00). Поддерживаются только бинарные .plist.');
+
+  const trailer=bytes.slice(bytes.length-32);
+  const offsetIntSize=trailer[6];
+  const objectRefSize=trailer[7];
+  const numObjects=Number(bytesToBigIntUnsigned(trailer.slice(8,16)));
+  const topObject=Number(bytesToBigIntUnsigned(trailer.slice(16,24)));
+  const offsetTableOffset=Number(bytesToBigIntUnsigned(trailer.slice(24,32)));
+
+  const offsetTable=[];
+  for(let i=0;i<numObjects;i++){
+    const start=offsetTableOffset+i*offsetIntSize;
+    offsetTable.push(bytesToUIntNumber(bytes.slice(start,start+offsetIntSize)));
+  }
+  const cache=new Array(numObjects);
+
+  function readLen(pos,info){
+    if(info!==0x0F) return [info,pos];
+    const lenMarker=bytes[pos]; pos++;
+    const lenByteCount=1<<(lenMarker&0x0F);
+    const len=bytesToUIntNumber(bytes.slice(pos,pos+lenByteCount));
+    pos+=lenByteCount;
+    return [len,pos];
+  }
+
+  function readObject(index){
+    if(cache[index]!==undefined) return cache[index];
+    const offset=offsetTable[index];
+    const marker=bytes[offset];
+    const type=marker&0xF0, info=marker&0x0F;
+    let pos=offset+1, result;
+    switch(type){
+      case 0x00:
+        if(marker===0x00) result=null;
+        else if(marker===0x08) result=false;
+        else if(marker===0x09) result=true;
+        else result=null;
+        cache[index]=result; return result;
+      case 0x10:{
+        const byteCount=1<<info;
+        const arr=bytes.slice(pos,pos+byteCount);
+        let val;
+        if(byteCount>=8){
+          const big=bytesToBigIntSigned(arr.slice(0,8));
+          val=(big>=BigInt(Number.MIN_SAFE_INTEGER)&&big<=BigInt(Number.MAX_SAFE_INTEGER))?Number(big):big.toString();
+        } else val=bytesToUIntNumber(arr);
+        result={t:'int',v:val}; cache[index]=result; return result;
+      }
+      case 0x20:{
+        const byteCount=1<<info;
+        const arr=bytes.slice(pos,pos+byteCount);
+        const dv=new DataView(arr.buffer,arr.byteOffset,arr.byteLength);
+        const val=byteCount===4?dv.getFloat32(0,false):dv.getFloat64(0,false);
+        result={t:'real',v:val}; cache[index]=result; return result;
+      }
+      case 0x30:{
+        const arr=bytes.slice(pos,pos+8);
+        const dv=new DataView(arr.buffer,arr.byteOffset,8);
+        const secs=dv.getFloat64(0,false);
+        const date=new Date((secs+EPOCH_OFFSET)*1000);
+        result={t:'date',v:date.toISOString()}; cache[index]=result; return result;
+      }
+      case 0x40:{
+        const [len,p2]=readLen(pos,info);
+        const dataBytes=bytes.slice(p2,p2+len);
+        result={t:'data',v:bytesToBase64(dataBytes)}; cache[index]=result; return result;
+      }
+      case 0x50:{
+        const [len,p2]=readLen(pos,info);
+        const strBytes=bytes.slice(p2,p2+len);
+        let s=''; for(let i=0;i<strBytes.length;i++) s+=String.fromCharCode(strBytes[i]);
+        result=s; cache[index]=result; return result;
+      }
+      case 0x60:{
+        const [len,p2]=readLen(pos,info);
+        let chars=[];
+        for(let i=0;i<len;i++){ const hi=bytes[p2+i*2], lo=bytes[p2+i*2+1]; chars.push((hi<<8)|lo); }
+        result=String.fromCharCode(...chars); cache[index]=result; return result;
+      }
+      case 0x80:{
+        const byteCount=info+1;
+        const val=bytesToUIntNumber(bytes.slice(pos,pos+byteCount));
+        result={t:'uid',v:val}; cache[index]=result; return result;
+      }
+      case 0xA0:{
+        const [len,p2]=readLen(pos,info);
+        const refs=[]; let p=p2;
+        for(let i=0;i<len;i++){ refs.push(bytesToUIntNumber(bytes.slice(p,p+objectRefSize))); p+=objectRefSize; }
+        result=new Array(len); cache[index]=result;
+        for(let i=0;i<len;i++) result[i]=readObject(refs[i]);
+        return result;
+      }
+      case 0xD0:{
+        const [len,p2]=readLen(pos,info);
+        const keyRefs=[], valRefs=[]; let p=p2;
+        for(let i=0;i<len;i++){ keyRefs.push(bytesToUIntNumber(bytes.slice(p,p+objectRefSize))); p+=objectRefSize; }
+        for(let i=0;i<len;i++){ valRefs.push(bytesToUIntNumber(bytes.slice(p,p+objectRefSize))); p+=objectRefSize; }
+        const obj={__dict:true,__keys:[],__map:{}};
+        cache[index]=obj;
+        for(let i=0;i<len;i++){
+          const k=readObject(keyRefs[i]);
+          const v=readObject(valRefs[i]);
+          obj.__keys.push(k); obj.__map[k]=v;
         }
-    };
-
-    // [Исправленный XML-генератор, устойчивый к пустым тегам]
-    function objectToXmlPlist(obj) {
-        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n';
-        function convert(item, indent = "  ") {
-            if (item === null) return indent + '<string></string>\n';
-            if (item === true) return indent + '<true/>\n';
-            if (item === false) return indent + '<false/>\n';
-            if (typeof item === 'number') {
-                if (Number.isInteger(item)) return indent + `<integer>${item}</integer>\n`;
-                return indent + `<real>${item}</real>\n`;
-            }
-            if (typeof item === 'string') {
-                if (item.startsWith("{hex_data}:")) {
-                    const hex = item.replace("{hex_data}:", "");
-                    let binary = ''; for (let i = 0; i < hex.length; i += 2) binary += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-                    return indent + `<data>${btoa(binary)}</data>\n`;
-                }
-                const escaped = item.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return indent + `<string>${escaped}</string>\n`;
-            }
-            if (Array.isArray(item)) {
-                if (item.length === 0) return indent + '<array/>\n';
-                let res = indent + '<array>\n'; item.forEach(v => { res += convert(v, indent + "  "); });
-                return res + indent + '</array>\n';
-            }
-            if (typeof item === 'object') {
-                const keys = Object.keys(item);
-                if (keys.length === 0) return indent + '<dict/>\n';
-                let res = indent + '<dict>\n';
-                for (let key in item) {
-                    const escapedKey = key.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    res += indent + `  <key>${escapedKey}</key>\n` + convert(item[key], indent + "  ");
-                }
-                return res + indent + '</dict>\n';
-            }
-            return '';
-        }
-        return xml + convert(obj) + '</plist>';
+        return obj;
+      }
+      default: result=null; cache[index]=result; return result;
     }
+  }
+  return readObject(topObject);
+}
 
-    // [Исправленный XML-парсер, игнорирующий форматирование CodeMirror]
-    function xmlPlistToObject(xmlString) {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
-        if (parserError) throw new Error("Ошибка в XML: " + parserError.textContent);
+class ByteBuf{
+  constructor(){this.chunks=[];this.length=0;}
+  pushByte(b){this.chunks.push(Uint8Array.of(b&0xFF));this.length+=1;}
+  pushBytes(arr){this.chunks.push(Uint8Array.from(arr));this.length+=arr.length;}
+  toUint8Array(){const out=new Uint8Array(this.length);let off=0;for(const c of this.chunks){out.set(c,off);off+=c.length;}return out;}
+}
+function uintToBytesBE(value,size){
+  let big=typeof value==='bigint'?value:BigInt(Math.trunc(Number(value)));
+  if(big<0n) big=(1n<<BigInt(size*8))+big;
+  const out=new Array(size);
+  for(let i=size-1;i>=0;i--){ out[i]=Number(big&0xFFn); big>>=8n; }
+  return out;
+}
+function intSizeFor(value){
+  const v=typeof value==='bigint'?value:BigInt(Math.trunc(Number(value)));
+  if(v<0n) return 8;
+  if(v<=0xFFn) return 1;
+  if(v<=0xFFFFn) return 2;
+  if(v<=0xFFFFFFFFn) return 4;
+  return 8;
+}
+function writeIntObject(buf,value){
+  const size=intSizeFor(value);
+  const pow={1:0,2:1,4:2,8:3}[size];
+  buf.pushByte(0x10|pow);
+  buf.pushBytes(uintToBytesBE(value,size));
+}
+function writeLenPrefix(buf,baseNibble,length){
+  if(length<15) buf.pushByte(baseNibble|length);
+  else { buf.pushByte(baseNibble|0x0F); writeIntObject(buf,length); }
+}
+function isAscii(str){ for(let i=0;i<str.length;i++) if(str.charCodeAt(i)>127) return false; return true; }
 
-        const plist = xmlDoc.getElementsByTagName("plist")[0];
-        if (!plist) throw new Error("Тег <plist> не найден!");
-        
-        const rootNode = Array.from(plist.childNodes).find(node => node.nodeType === 1);
-        if (!rootNode) throw new Error("Корневой элемент контейнера пуст!");
-        return parseNodeValue(rootNode);
-
-        function parseNodeValue(node) {
-            const name = node.tagName.toLowerCase();
-            if (name === "string") return node.textContent || ""; 
-            if (name === "integer") return parseInt(node.textContent.trim(), 10) || 0;
-            if (name === "real") return parseFloat(node.textContent.trim()) || 0.0;
-            if (name === "true") return true;
-            if (name === "false") return false;
-            if (name === "data") {
-                try {
-                    const bin = atob(node.textContent.replace(/[\s\r\n]+/g, ""));
-                    let hex = "";
-                    for (let i = 0; i < bin.length; i++) hex += bin.charCodeAt(i).toString(16).padStart(2, '0');
-                    return `{hex_data}:${hex}`;
-                } catch(e) { return "{hex_data}:"; }
-            }
-            if (name === "dict") {
-                const dict = {}; let currentKey = null;
-                const children = Array.from(node.childNodes).filter(n => n.nodeType === 1);
-                for (let child of children) {
-                    if (child.tagName.toLowerCase() === "key") {
-                        currentKey = child.textContent.trim();
-                    } else if (currentKey !== null) {
-                        dict[currentKey] = parseNodeValue(child); currentKey = null; 
-                    }
-                }
-                return dict;
-            }
-            if (name === "array") {
-                const children = Array.from(node.childNodes).filter(n => n.nodeType === 1);
-                return children.map(parseNodeValue);
-            }
-            return null;
-        }
+function flattenTree(root){
+  const objects=[];
+  function visit(node){
+    const idx=objects.length;
+    if(node&&node.__dict){
+      const entry={type:'dict',keys:[],vals:[]}; objects.push(entry);
+      for(const k of node.__keys){
+        const kIdx=visit(k); const vIdx=visit(node.__map[k]);
+        entry.keys.push(kIdx); entry.vals.push(vIdx);
+      }
+      return idx;
     }
-
-    // [Зеркальный Компилятор bplist00 Версии 5.1 — Без Смещений]
-    const BplistWriter = {
-        create: function(obj) {
-            const uniqueObjects = [];
-            const stringMap = new Map();
-            const numberMap = new Map();
-
-            function collectObjects(item) {
-                if (item === null || typeof item === 'boolean') return;
-                
-                if (typeof item === 'string') {
-                    if (!stringMap.has(item)) {
-                        stringMap.set(item, uniqueObjects.length);
-                        uniqueObjects.push({ type: 'string', value: item });
-                    }
-                    return;
-                }
-                if (typeof item === 'number') {
-                    const key = Object.is(item, -0) ? '-0' : item.toString();
-                    if (!numberMap.has(key)) {
-                        numberMap.set(key, uniqueObjects.length);
-                        uniqueObjects.push({ type: 'number', value: item });
-                    }
-                    return;
-                }
-                if (Array.isArray(item)) {
-                    item.forEach(collectObjects);
-                    uniqueObjects.push({ type: 'array', value: item });
-                    return;
-                }
-                if (typeof item === 'object') {
-                    Object.keys(item).forEach(k => collectObjects(k));
-                    Object.values(item).forEach(v => collectObjects(v));
-                    uniqueObjects.push({ type: 'dict', value: item });
-                }
-            }
-
-            collectObjects(obj);
-            const rootRef = uniqueObjects.length - 1;
-
-            function getIntBytes(val) {
-                if (val >= -128 && val <= 127) return { marker: 0x10, bytes: [val & 0xFF] };
-                if (val >= -32768 && val <= 32767) return { marker: 0x11, bytes: [(val >> 8) & 0xFF, val & 0xFF] };
-                if (val >= -2147483648 && val <= 2147483647) {
-                    return { marker: 0x12, bytes: [(val >> 24) & 0xFF, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF] };
-                }
-                const buf = new ArrayBuffer(8);
-                new DataView(buf).setBigInt64(0, BigInt(val));
-                return { marker: 0x13, bytes: Array.from(new Uint8Array(buf)) };
-            }
-
-            function getRefId(item) {
-                if (item === null) return 0x00; 
-                if (item === false) return 0x08;
-                if (item === true) return 0x09;
-                if (typeof item === 'string') return stringMap.get(item);
-                if (typeof item === 'number') return numberMap.get(Object.is(item, -0) ? '-0' : item.toString());
-                return uniqueObjects.findIndex(o => o.value === item);
-            }
-
-            const offsetTable = [];
-
-            uniqueObjects.forEach(obj => {
-                if (obj.type === 'number') {
-                    if (Number.isInteger(obj.value)) {
-                        const packed = getIntBytes(obj.value);
-                        offsetTable.push([packed.marker, ...packed.bytes]);
-                    } else {
-                        const buf = new ArrayBuffer(8);
-                        new DataView(buf).setFloat64(0, obj.value);
-                        offsetTable.push([0x23, ...new Uint8Array(buf)]);
-                    }
-                } else if (obj.type === 'string') {
-                    if (obj.value.startsWith("{hex_data}:")) {
-                        const hex = obj.value.replace("{hex_data}:", "");
-                        const bytes = [];
-                        for (let c = 0; c < hex.length; c += 2) bytes.push(parseInt(hex.substr(c, 2), 16));
-                        writeLengthMarker(0x40, bytes.length, bytes);
-                    } else {
-                        const encoder = new TextEncoder();
-                        const raw = encoder.encode(obj.value);
-                        writeLengthMarker(0x50, raw.length, Array.from(raw));
-                    }
-                } else if (obj.type === 'array') {
-                    const refs = obj.value.map(getRefId);
-                    writeLengthMarker(0xA0, refs.length, refs);
-                } else if (obj.type === 'dict') {
-                    const keys = Object.keys(obj.value);
-                    const kRefs = keys.map(getRefId);
-                    const vRefs = keys.map(k => getRefId(obj.value[k]));
-                    writeLengthMarker(0xD0, keys.length, [...kRefs, ...vRefs]);
-                }
-            });
-
-            function writeLengthMarker(type, length, payload) {
-                if (length < 15) {
-                    offsetTable.push([type | length, ...payload]);
-                } else {
-                    const lenPacked = getIntBytes(length);
-                    offsetTable.push([type | 0x0F, lenPacked.marker, ...lenPacked.bytes, ...payload]);
-                }
-            }
-
-            const numObjects = uniqueObjects.length;
-            let objectRefSize = 1;
-            if (numObjects > 0xFF) objectRefSize = 2;
-            if (numObjects > 0xFFFF) objectRefSize = 4;
-
-            for (let i = 0; i < offsetTable.length; i++) {
-                const bytes = offsetTable[i];
-                const type = bytes[0] & 0xF0;
-                if (type === 0xA0 || type === 0xD0) {
-                    let headerSize = 1;
-                    if ((bytes[0] & 0x0F) === 0x0F) {
-                        headerSize = bytes[1] === 0x10 ? 3 : bytes[1] === 0x11 ? 4 : bytes[1] === 0x12 ? 6 : 10;
-                    }
-                    const meta = bytes.slice(0, headerSize);
-                    const oldRefs = bytes.slice(headerSize);
-                    const newRefs = [];
-
-                    for (let r of oldRefs) {
-                        let rBig = BigInt(r);
-                        for (let b = objectRefSize - 1; b >= 0; b--) {
-                            newRefs.push(Number((rBig >> BigInt(b * 8)) & 0xFFn));
-                        }
-                    }
-                    offsetTable[i] = [...meta, ...newRefs];
-                }
-            }
-
-            let finalBytes = [98, 112, 108, 105, 115, 116, 48, 48]; 
-            const actualOffsets = [];
-
-            offsetTable.forEach(bytes => {
-                actualOffsets.push(finalBytes.length);
-                finalBytes.push(...bytes);
-            });
-
-            const offsetTablePos = finalBytes.length;
-
-            let offsetIntSize = 1;
-            if (offsetTablePos > 0xFF) offsetIntSize = 2;
-            if (offsetTablePos > 0xFFFF) offsetIntSize = 4;
-            if (offsetTablePos > 0xFFFFFFFF) offsetIntSize = 8;
-
-            actualOffsets.forEach(off => {
-                let offBig = BigInt(off);
-                for (let b = offsetIntSize - 1; b >= 0; b--) {
-                    finalBytes.push(Number((offBig >> BigInt(b * 8)) & 0xFFn));
-                }
-            });
-
-            const trailer = new Array(32).fill(0);
-            trailer[6] = offsetIntSize;
-            trailer[7] = objectRefSize;
-            
-            const numObjBig = BigInt(numObjects);
-            for(let i=0; i<8; i++) trailer[8+i] = Number((numObjBig >> BigInt((7-i)*8)) & 0xFFn);
-            
-            const rootRefBig = BigInt(rootRef);
-            for(let i=0; i<8; i++) trailer[16+i] = Number((rootRefBig >> BigInt((7-i)*8)) & 0xFFn);
-            
-            const tablePosBig = BigInt(offsetTablePos);
-            for(let i=0; i<8; i++) trailer[24+i] = Number((tablePosBig >> BigInt((7-i)*8)) & 0xFFn);
-
-            finalBytes.push(...trailer);
-            return new Uint8Array(finalBytes).buffer;
-        }
-    };
-</script>
-
-<script>
-    let editor;
-    let searchMatches = [];
-    let currentMatchIndex = -1;
-    let activeMarkers = [];
-    let currentHighlightMark = null;
-
-    window.addEventListener('DOMContentLoaded', () => {
-        editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
-            mode: "xml",
-            lineNumbers: true,
-            lineWrapping: true
-        });
-        
-        editor.setValue(`<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n  <dict>\n    <key>Инструкция</key>\n    <string>Нажмите кнопку "Открыть" для загрузки bplist00</string>\n  </dict>\n</plist>`);
-        
-        editor.on("change", () => {
-            if (document.getElementById('custom-search-panel').style.display === 'flex') {
-                initSearchContext(false); 
-            }
-        });
-        setTimeout(() => { editor.refresh(); }, 200);
-    });
-
-    function updateStatus(text, isError = false) {
-        const sb = document.getElementById('statusbar');
-        document.getElementById('status-text').innerText = text;
-        if (isError) sb.classList.add('error'); else sb.classList.remove('error');
+    if(Array.isArray(node)){
+      const entry={type:'array',items:[]}; objects.push(entry);
+      for(const item of node) entry.items.push(visit(item));
+      return idx;
     }
+    if(node===null||node===undefined){ objects.push({type:'null'}); return idx; }
+    if(typeof node==='boolean'){ objects.push({type:'bool',value:node}); return idx; }
+    if(typeof node==='string'){ objects.push({type:'string',value:node}); return idx; }
+    if(node&&node.t==='int'){ objects.push({type:'int',value:node.v}); return idx; }
+    if(node&&node.t==='real'){ objects.push({type:'real',value:node.v}); return idx; }
+    if(node&&node.t==='date'){ objects.push({type:'date',value:node.v}); return idx; }
+    if(node&&node.t==='data'){ objects.push({type:'data',value:node.v}); return idx; }
+    if(node&&node.t==='uid'){ objects.push({type:'uid',value:node.v}); return idx; }
+    objects.push({type:'string',value:String(node)}); return idx;
+  }
+  const rootIdx=visit(root);
+  return {objects,rootIdx};
+}
 
-    function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        document.getElementById('filename-display').value = file.name;
-        updateStatus("Декодирование...");
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const buffer = e.target.result;
-                const parsedObj = BplistReader.parse(buffer);
-                editor.setValue(objectToXmlPlist(parsedObj));
-                updateStatus("Успешно импортировано!");
-                resetSearch();
-                setTimeout(() => { editor.refresh(); }, 50);
-            } catch (err) { updateStatus("Ошибка: " + err.message, true); }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    // [Метод выгрузки через Share API — с поддержкой вывода]
-    async function shareBplist() {
-        try {
-            updateStatus("Компиляция в bplist00...");
-            const xmlText = editor.getValue();
-            const obj = xmlPlistToObject(xmlText);
-            
-            let targetName = document.getElementById('filename-display').value.trim();
-            if (!targetName) targetName = "patched_file.plist";
-            
-            const buffer = BplistWriter.create(obj);
-            const fileData = new Uint8Array(buffer);
-            
-            const file = new File([fileData], targetName, { type: "application/octet-stream" });
-            
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: targetName
-                });
-                updateStatus("Экспортирован чистый bplist00!");
-            } else {
-                const blob = new Blob([buffer], { type: "application/octet-stream" });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = targetName;
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                updateStatus("Скачан файл через Blob.");
-            }
-        } catch (err) { 
-            updateStatus("Ошибка компиляции!", true);
-            alert("Ошибка сборщика: " + err.message);
-        }
-    }
-
-    function triggerSearch() {
-        const panel = document.getElementById('custom-search-panel');
-        if (panel.style.display === 'none') {
-            panel.style.display = 'flex';
-            document.getElementById('search-term').focus();
-            initSearchContext();
+function writeBinaryPlist(root){
+  const {objects,rootIdx}=flattenTree(root);
+  const numObjects=objects.length;
+  const objectRefSize=numObjects<=0xFF?1:numObjects<=0xFFFF?2:4;
+  const buf=new ByteBuf();
+  buf.pushBytes([0x62,0x70,0x6C,0x69,0x73,0x74,0x30,0x30]);
+  const offsets=new Array(numObjects);
+  for(let i=0;i<numObjects;i++){
+    offsets[i]=buf.length;
+    const entry=objects[i];
+    switch(entry.type){
+      case 'null': buf.pushByte(0x00); break;
+      case 'bool': buf.pushByte(entry.value?0x09:0x08); break;
+      case 'int': writeIntObject(buf,entry.value); break;
+      case 'real':{
+        buf.pushByte(0x23);
+        const tmp=new DataView(new ArrayBuffer(8)); tmp.setFloat64(0,entry.value,false);
+        buf.pushBytes(Array.from(new Uint8Array(tmp.buffer))); break;
+      }
+      case 'date':{
+        buf.pushByte(0x33);
+        const secs=new Date(entry.value).getTime()/1000-EPOCH_OFFSET;
+        const tmp=new DataView(new ArrayBuffer(8)); tmp.setFloat64(0,secs,false);
+        buf.pushBytes(Array.from(new Uint8Array(tmp.buffer))); break;
+      }
+      case 'data':{
+        const bytes=base64ToBytes(entry.value);
+        writeLenPrefix(buf,0x40,bytes.length);
+        buf.pushBytes(Array.from(bytes)); break;
+      }
+      case 'string':{
+        if(isAscii(entry.value)){
+          writeLenPrefix(buf,0x50,entry.value.length);
+          const arr=[]; for(let i2=0;i2<entry.value.length;i2++) arr.push(entry.value.charCodeAt(i2));
+          buf.pushBytes(arr);
         } else {
-            panel.style.display = 'none';
-            clearMarkers();
+          writeLenPrefix(buf,0x60,entry.value.length);
+          const arr=[];
+          for(let i2=0;i2<entry.value.length;i2++){ const c=entry.value.charCodeAt(i2); arr.push((c>>8)&0xFF,c&0xFF); }
+          buf.pushBytes(arr);
         }
-        setTimeout(() => { editor.refresh(); }, 50);
+        break;
+      }
+      case 'uid':{
+        const size=intSizeFor(entry.value);
+        buf.pushByte(0x80|(size-1));
+        buf.pushBytes(uintToBytesBE(entry.value,size)); break;
+      }
+      case 'array':{
+        writeLenPrefix(buf,0xA0,entry.items.length);
+        for(const refIdx of entry.items) buf.pushBytes(uintToBytesBE(refIdx,objectRefSize));
+        break;
+      }
+      case 'dict':{
+        writeLenPrefix(buf,0xD0,entry.keys.length);
+        for(const refIdx of entry.keys) buf.pushBytes(uintToBytesBE(refIdx,objectRefSize));
+        for(const refIdx of entry.vals) buf.pushBytes(uintToBytesBE(refIdx,objectRefSize));
+        break;
+      }
     }
+  }
+  const offsetTableOffset=buf.length;
+  const maxOffset=Math.max(offsetTableOffset,...offsets,0);
+  const offsetIntSize=maxOffset<=0xFF?1:maxOffset<=0xFFFF?2:maxOffset<=0xFFFFFFFF?4:8;
+  for(let i=0;i<numObjects;i++) buf.pushBytes(uintToBytesBE(offsets[i],offsetIntSize));
+  buf.pushBytes([0,0,0,0,0,0]);
+  buf.pushByte(0);
+  buf.pushByte(offsetIntSize);
+  buf.pushByte(objectRefSize);
+  buf.pushBytes(uintToBytesBE(numObjects,8));
+  buf.pushBytes(uintToBytesBE(rootIdx,8));
+  buf.pushBytes(uintToBytesBE(offsetTableOffset,8));
+  return buf.toUint8Array();
+}
 
-    function clearMarkers() {
-        activeMarkers.forEach(m => m.clear()); activeMarkers = [];
-        if (currentHighlightMark) { currentHighlightMark.clear(); currentHighlightMark = null; }
+function xmlEscape(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toXml(node,indent){
+  const pad='  '.repeat(indent);
+  if(node&&node.__dict){
+    let out=pad+'<dict>\n';
+    for(const k of node.__keys){
+      out+=pad+'  <key>'+xmlEscape(k)+'</key>\n';
+      out+=toXml(node.__map[k],indent+1);
     }
+    out+=pad+'</dict>\n';
+    return out;
+  }
+  if(Array.isArray(node)){
+    let out=pad+'<array>\n';
+    for(const it of node) out+=toXml(it,indent+1);
+    out+=pad+'</array>\n';
+    return out;
+  }
+  if(node===null||node===undefined) return pad+'<string></string>\n';
+  if(typeof node==='boolean') return pad+(node?'<true/>':'<false/>')+'\n';
+  if(typeof node==='string') return pad+'<string>'+xmlEscape(node)+'</string>\n';
+  if(node.t==='int') return pad+'<integer>'+node.v+'</integer>\n';
+  if(node.t==='real') return pad+'<real>'+node.v+'</real>\n';
+  if(node.t==='date') return pad+'<date>'+node.v.replace(/\.\d+Z$/,'Z')+'</date>\n';
+  if(node.t==='data') return pad+'<data>\n'+pad+node.v+'\n'+pad+'</data>\n';
+  if(node.t==='uid') return pad+'<integer>'+node.v+'</integer>\n';
+  return pad+'<string></string>\n';
+}
 
-    function resetSearch() {
-        clearMarkers(); searchMatches = []; currentMatchIndex = -1;
-        document.getElementById('search-index-label').innerText = "0/0";
-    }
+/* =========================================================
+   2. APP STATE + UI
+   ========================================================= */
+let root=null;
+let originalName='edited';
+const $=(id)=>document.getElementById(id);
+const treeRoot=$('treeRoot');
+const statusEl=$('status');
+const dropzone=$('dropzone');
+const footer=$('footer');
 
-    // [Поиск контекста]
-    function getSearchQuery() {
-        const queryStr = document.getElementById('search-term').value;
-        if (!queryStr) return null;
-        const isRegex = document.getElementById('search-regex').checked;
-        const caseSensitive = document.getElementById('search-case').checked;
-        if (isRegex) {
-            try { return new RegExp(queryStr, caseSensitive ? "g" : "gi"); } catch (e) { return null; }
-        }
-        return queryStr;
-    }
+function setStatus(msg,isErr){ statusEl.textContent=msg||''; statusEl.style.color=isErr?'var(--danger)':'var(--dim)'; }
 
-    function initSearchContext(scroll = true) {
-        clearMarkers();
-        const query = getSearchQuery();
-        if (!query) { resetSearch(); return; }
-        const caseSensitive = document.getElementById('search-case').checked;
-        searchMatches = [];
-        let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
-        while (cursor.findNext()) {
-            const from = cursor.from(); const to = cursor.to();
-            searchMatches.push({ from: {line: from.line, ch: from.ch}, to: {line: to.line, ch: to.ch} });
-            let marker = editor.markText(from, to, { className: "cm-search-marker" });
-            activeMarkers.push(marker);
-        }
-        if (searchMatches.length > 0) {
-            currentMatchIndex = 0; updateCounterUI();
-            if (scroll) highlightCurrentMatch();
-        } else { resetSearch(); }
-    }
+function typeLabel(node){
+  if(node===null||node===undefined) return 'null';
+  if(node&&node.__dict) return 'dict';
+  if(Array.isArray(node)) return 'array';
+  if(typeof node==='boolean') return 'bool';
+  if(typeof node==='string') return 'string';
+  if(node&&node.t) return node.t;
+  return 'string';
+}
 
-    document.getElementById('search-term').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); navigateSearch(e.shiftKey); }
+function defaultForType(t){
+  switch(t){
+    case 'dict': return {__dict:true,__keys:[],__map:{}};
+    case 'array': return [];
+    case 'string': return '';
+    case 'bool': return false;
+    case 'null': return null;
+    case 'int': return {t:'int',v:0};
+    case 'real': return {t:'real',v:0};
+    case 'date': return {t:'date',v:new Date().toISOString()};
+    case 'data': return {t:'data',v:''};
+    case 'uid': return {t:'uid',v:0};
+  }
+  return '';
+}
+
+function rerender(){
+  treeRoot.innerHTML='';
+  if(root===null){
+    footer.style.display='none';
+    dropzone.style.display='block';
+    return;
+  }
+  dropzone.style.display='none';
+  footer.style.display='flex';
+  const el=renderNode(root,null,null,null,'root');
+  el.classList.add('root');
+  treeRoot.appendChild(el);
+  refreshSearch();
+}
+
+function renderNode(node, keyOrIndex, parent, setter, pathId){
+  const wrap=document.createElement('div');
+  wrap.className='node';
+  wrap.dataset.path=pathId;
+
+  const header=document.createElement('div');
+  header.className='nodeHeader';
+  wrap.appendChild(header);
+
+  const type=typeLabel(node);
+  const isContainer = type==='dict' || type==='array';
+
+  if(isContainer){
+    const toggle=document.createElement('div');
+    toggle.className='toggle';
+    toggle.textContent='▾';
+    header.appendChild(toggle);
+    var childrenBox=document.createElement('div');
+    childrenBox.className='children';
+    toggle.addEventListener('click',()=>{
+      childrenBox.classList.toggle('collapsed');
+      toggle.textContent=childrenBox.classList.contains('collapsed')?'▸':'▾';
     });
+  } else {
+    const spacer=document.createElement('div');
+    spacer.className='toggle';
+    header.appendChild(spacer);
+  }
 
-    function updateCounterUI() {
-        const label = document.getElementById('search-index-label');
-        if (searchMatches.length === 0) label.innerText = "0/0";
-        else label.innerText = `${currentMatchIndex + 1}/${searchMatches.length}`;
-    }
+  if(keyOrIndex!==null && typeof keyOrIndex==='number'){
+    const idxTag=document.createElement('span');
+    idxTag.className='indexTag';
+    idxTag.textContent='['+keyOrIndex+']';
+    header.appendChild(idxTag);
+  } else if(keyOrIndex!==null){
+    const keyInput=document.createElement('input');
+    keyInput.className='keyInput searchable';
+    keyInput.dataset.role='key';
+    keyInput.value=keyOrIndex;
+    keyInput.addEventListener('change',()=>{
+      const dictObj=parent;
+      const oldKey=keyOrIndex;
+      const newKey=keyInput.value;
+      if(newKey===oldKey) return;
+      if(dictObj.__map.hasOwnProperty(newKey)){
+        setStatus('Ключ "'+newKey+'" уже существует',true);
+        keyInput.value=oldKey; return;
+      }
+      const idx=dictObj.__keys.indexOf(oldKey);
+      dictObj.__keys[idx]=newKey;
+      dictObj.__map[newKey]=dictObj.__map[oldKey];
+      delete dictObj.__map[oldKey];
+      rerender();
+    });
+    header.appendChild(keyInput);
+  }
 
-    function highlightCurrentMatch() {
-        if (currentHighlightMark) { currentHighlightMark.clear(); currentHighlightMark = null; }
-        if (searchMatches.length === 0 || currentMatchIndex === -1) return;
-        const match = searchMatches[currentMatchIndex];
-        editor.setSelection(match.from, match.to);
-        currentHighlightMark = editor.markText(match.from, match.to, { className: "cm-search-marker-current" });
-        editor.scrollIntoView({from: match.from, to: match.to}, 150);
-    }
+  const typeSelect=document.createElement('select');
+  typeSelect.className='typeSelect';
+  ['dict','array','string','int','real','bool','date','data','uid','null'].forEach(t=>{
+    const opt=document.createElement('option'); opt.value=t; opt.textContent=t;
+    if(t===type) opt.selected=true;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.addEventListener('change',()=>{
+    const newVal=defaultForType(typeSelect.value);
+    setter(newVal);
+    rerender();
+  });
+  header.appendChild(typeSelect);
 
-    function navigateSearch(reverse = false) {
-        if (searchMatches.length === 0) return;
-        if (reverse) currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-        else currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
-        updateCounterUI(); highlightCurrentMatch();
+  if(!isContainer){
+    if(type==='bool'){
+      const b=document.createElement('button');
+      b.className='small valInput';
+      b.style.flex='0 0 auto';
+      b.textContent=node?'true':'false';
+      b.addEventListener('click',()=>{ setter(!node); rerender(); });
+      header.appendChild(b);
+    } else if(type==='null'){
+      const tag=document.createElement('span');
+      tag.className='typeTag'; tag.textContent='null';
+      header.appendChild(tag);
+    } else {
+      const input=document.createElement('input');
+      input.type='text';
+      input.className='valInput searchable';
+      input.dataset.role='value';
+      let rawVal;
+      if(type==='string') rawVal=node;
+      else if(node&&node.t) rawVal=String(node.v);
+      else rawVal='';
+      input.value=rawVal;
+      input.addEventListener('change',()=>{
+        let newVal;
+        if(type==='string') newVal=input.value;
+        else if(type==='int') newVal={t:'int',v:parseIntSafe(input.value)};
+        else if(type==='real') newVal={t:'real',v:parseFloat(input.value)||0};
+        else if(type==='date') newVal={t:'date',v:input.value};
+        else if(type==='data') newVal={t:'data',v:input.value};
+        else if(type==='uid') newVal={t:'uid',v:parseIntSafe(input.value)};
+        else newVal=input.value;
+        setter(newVal);
+      });
+      header.appendChild(input);
+      if(type==='data'){
+        const hint=document.createElement('span');
+        hint.className='typeTag'; hint.textContent='base64';
+        header.appendChild(hint);
+      }
+      if(type==='date'){
+        const hint=document.createElement('span');
+        hint.className='typeTag'; hint.textContent='ISO 8601';
+        header.appendChild(hint);
+      }
     }
+  } else {
+    const count=type==='dict'?node.__keys.length:node.length;
+    const countTag=document.createElement('span');
+    countTag.className='countTag';
+    countTag.textContent=type==='dict'?count+' ключ(ей)':count+' элемент(ов)';
+    header.appendChild(countTag);
+  }
 
-    function doReplace() {
-        if (searchMatches.length === 0 || currentMatchIndex === -1) return;
-        const replaceStr = document.getElementById('replace-term').value;
-        const match = searchMatches[currentMatchIndex];
-        const text = editor.getRange(match.from, match.to);
-        const query = getSearchQuery();
-        const processedReplace = text.replace(query, replaceStr);
-        editor.replaceSelection(processedReplace);
-        initSearchContext(false);
-        if (searchMatches.length > 0) {
-            if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
-            updateCounterUI(); highlightCurrentMatch();
-        }
-    }
+  const actions=document.createElement('div');
+  actions.className='rowActions';
+  if(parent!==null){
+    const delBtn=document.createElement('button');
+    delBtn.className='small danger';
+    delBtn.textContent='✕';
+    delBtn.addEventListener('click',()=>{
+      if(Array.isArray(parent)){
+        const idx=parent.indexOf(node);
+        parent.splice(idx,1);
+      } else if(parent&&parent.__dict){
+        const idx=parent.__keys.indexOf(keyOrIndex);
+        parent.__keys.splice(idx,1);
+        delete parent.__map[keyOrIndex];
+      }
+      rerender();
+    });
+    actions.appendChild(delBtn);
+  }
+  header.appendChild(actions);
 
-    function doReplaceAll() {
-        const query = getSearchQuery();
-        if (!query || searchMatches.length === 0) return;
-        const replaceStr = document.getElementById('replace-term').value;
-        const caseSensitive = document.getElementById('search-case').checked;
-        editor.operation(() => {
-            let cursor = editor.getSearchCursor(query, {line: 0, ch: 0}, { caseFold: !caseSensitive });
-            while (cursor.findNext()) {
-                const text = editor.getRange(cursor.from(), cursor.to());
-                const processedReplace = text.replace(query, replaceStr);
-                cursor.replace(processedReplace);
-            }
-        });
-        updateStatus(`Заменено элементов: ${searchMatches.length}`);
-        resetSearch();
+  if(isContainer){
+    wrap.appendChild(childrenBox);
+    if(type==='dict'){
+      node.__keys.forEach((k,i)=>{
+        const childEl=renderNode(node.__map[k], k, node, (v)=>{ node.__map[k]=v; }, pathId+'/'+k);
+        childrenBox.appendChild(childEl);
+      });
+    } else {
+      node.forEach((item,i)=>{
+        const childEl=renderNode(item, i, node, (v)=>{ node[i]=v; }, pathId+'/'+i);
+        childrenBox.appendChild(childEl);
+      });
     }
+    const addBar=document.createElement('div');
+    addBar.className='addBar';
+    if(type==='dict'){
+      const keyInput=document.createElement('input');
+      keyInput.type='text'; keyInput.placeholder='новый ключ';
+      keyInput.style.cssText='font-family:var(--mono);font-size:12px;padding:5px 7px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--text);width:110px;';
+      const addBtn=document.createElement('button');
+      addBtn.className='small'; addBtn.textContent='+ добавить';
+      addBtn.addEventListener('click',()=>{
+        const k=keyInput.value.trim();
+        if(!k){ setStatus('Введите имя ключа',true); return; }
+        if(node.__map.hasOwnProperty(k)){ setStatus('Ключ уже существует',true); return; }
+        node.__keys.push(k);
+        node.__map[k]='';
+        rerender();
+      });
+      addBar.appendChild(keyInput); addBar.appendChild(addBtn);
+    } else {
+      const addBtn=document.createElement('button');
+      addBtn.className='small'; addBtn.textContent='+ добавить элемент';
+      addBtn.addEventListener('click',()=>{ node.push(''); rerender(); });
+      addBar.appendChild(addBtn);
+    }
+    wrap.appendChild(addBar);
+  }
+
+  return wrap;
+}
+
+function parseIntSafe(s){
+  const n=Number(s);
+  if(Number.isFinite(n)) return Math.trunc(n);
+  try{ return BigInt(s); }catch(e){ return 0; }
+}
+
+/* =========================================================
+   3. FILE OPEN / EXPORT (с диалогом «Сохранить как...»)
+   ========================================================= */
+$('openBtn').addEventListener('click', () => {
+  const fi = $('fileInput');
+  fi.removeAttribute('accept');
+  fi.click();
+});
+
+$('fileInput').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) loadFile(f);
+  e.target.value = '';
+});
+
+$('newBtn').addEventListener('click', () => {
+  root = { __dict: true, __keys: [], __map: {} };
+  originalName = 'new';
+  setStatus('Создан новый пустой plist');
+  rerender();
+});
+
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+function loadFile(file) {
+  originalName = file.name.replace(/\.(plist|xml)$/i, '');
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const bytes = new Uint8Array(reader.result);
+      root = parseBinaryPlist(bytes);
+      setStatus('Загружено: ' + file.name + ' (' + bytes.length + ' байт)');
+      rerender();
+    } catch (err) {
+      setStatus('Ошибка: ' + err.message, true);
+    }
+  };
+  reader.onerror = () => setStatus('Не удалось прочитать файл', true);
+  reader.readAsArrayBuffer(file);
+}
+
+// Экспорт .plist (Бинарный)
+$('exportBtn').addEventListener('click', async () => {
+  if (root === null) { setStatus('Нечего экспортировать', true); return; }
+  try {
+    const out = writeBinaryPlist(root);
+    const blob = new Blob([out], { type: 'application/x-plist' });
+    const fileName = originalName + '-edited.plist';
+    
+    await saveFileWithPicker(blob, fileName, [
+      {
+        description: 'Property List File',
+        accept: { 'application/x-plist': ['.plist'] }
+      }
+    ]);
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus('Ошибка экспорта: ' + err.message, true);
+    }
+  }
+});
+
+// Экспорт XML plist
+$('exportXmlBtn').addEventListener('click', async () => {
+  if (root === null) { setStatus('Нечего экспортировать', true); return; }
+  try {
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n' + toXml(root, 0) + '</plist>\n';
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const fileName = originalName + '-edited.xml.plist';
+
+    await saveFileWithPicker(blob, fileName, [
+      {
+        description: 'XML Property List',
+        accept: { 'application/xml': ['.plist', '.xml'] }
+      }
+    ]);
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus('Ошибка экспорта: ' + err.message, true);
+    }
+  }
+});
+
+// Диалоговое окно сохранения системного проводника
+async function saveFileWithPicker(blob, suggestedName, types) {
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: suggestedName,
+        types: types
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      setStatus('Файл сохранен: ' + handle.name);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setStatus('Сохранение отменено пользователем');
+        throw err;
+      }
+    }
+  }
+
+  // Резервный вариант для мобильных и браузеров без API
+  downloadFallback(blob, suggestedName);
+}
+
+function downloadFallback(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 2000);
+  
+  setStatus('Запрос на скачивание отправлен: ' + filename);
+}
+
+/* =========================================================
+   4. SEARCH (plain string + regex)
+   ========================================================= */
+let matches=[]; let matchIndex=-1;
+const searchInput=$('searchInput');
+const regexToggle=$('regexToggle');
+const caseToggle=$('caseToggle');
+const matchInfo=$('matchInfo');
+
+function refreshSearch(){
+  const q=searchInput.value;
+  clearHighlights();
+  matches=[]; matchIndex=-1;
+  if(!q){ matchInfo.textContent=''; return; }
+
+  let tester;
+  if(regexToggle.checked){
+    try{
+      const re=new RegExp(q, caseToggle.checked ? '' : 'i');
+      tester=(s)=>re.test(s);
+    }catch(err){
+      matchInfo.textContent='Некорр. regex';
+      return;
+    }
+  } else {
+    const needle=caseToggle.checked?q:q.toLowerCase();
+    tester=(s)=>(caseToggle.checked?s:s.toLowerCase()).includes(needle);
+  }
+
+  const els=treeRoot.querySelectorAll('.searchable');
+  els.forEach(el=>{
+    const val = el.tagName==='INPUT' ? el.value : el.textContent;
+    if(val!==undefined && tester(String(val))){
+      matches.push(el);
+      el.closest('.nodeHeader').classList.add('matched');
+    }
+  });
+  matchInfo.textContent = matches.length ? '0/'+matches.length : 'нет совпадений';
+  if(matches.length){ matchIndex=0; gotoMatch(0); }
+}
+
+function clearHighlights(){
+  treeRoot.querySelectorAll('.nodeHeader.matched').forEach(el=>el.classList.remove('matched'));
+  treeRoot.querySelectorAll('.nodeHeader.current').forEach(el=>el.classList.remove('current'));
+}
+
+function gotoMatch(i){
+  if(!matches.length) return;
+  treeRoot.querySelectorAll('.nodeHeader.current').forEach(el=>el.classList.remove('current'));
+  matchIndex=((i%matches.length)+matches.length)%matches.length;
+  const el=matches[matchIndex];
+  let node=el.closest('.node');
+  while(node){
+    const childrenBox=node.parentElement && node.parentElement.classList && node.parentElement.classList.contains('children') ? node.parentElement : null;
+    if(childrenBox){
+      childrenBox.classList.remove('collapsed');
+    }
+    node=node.parentElement ? node.parentElement.closest('.node') : null;
+  }
+  let p=el.closest('.children');
+  while(p){
+    p.classList.remove('collapsed');
+    const headerToggle = p.previousElementSibling ? p.previousElementSibling.querySelector('.toggle') : null;
+    if(headerToggle) headerToggle.textContent='▾';
+    const outerNode=p.parentElement.closest('.node');
+    p = outerNode ? outerNode.parentElement.closest('.children') : null;
+  }
+  el.closest('.nodeHeader').classList.add('current');
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  matchInfo.textContent=(matchIndex+1)+'/'+matches.length;
+}
+
+searchInput.addEventListener('input',debounce(refreshSearch,250));
+regexToggle.addEventListener('change',refreshSearch);
+caseToggle.addEventListener('change',refreshSearch);
+$('nextBtn').addEventListener('click',()=>gotoMatch(matchIndex+1));
+$('prevBtn').addEventListener('click',()=>gotoMatch(matchIndex-1));
+searchInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter') gotoMatch(matchIndex+1); });
+
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+rerender();
 </script>
 </body>
 </html>
